@@ -1,0 +1,1686 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: Transaction API
+    version: 0.0.1
+paths:
+    /api/add_liquidity:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_AddLiquidity
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/AddLiquidityRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AddLiquidityReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/add_white:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_AddWhite
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AddWhiteReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/buy:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_BuyAICAT
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/BuyAICATRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/BuyAICATReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/eth_balance:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_EthBalance
+            parameters:
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EthBalanceReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/generate_key:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GenerateKey
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GenerateKeyReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_address_box:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetAddressBox
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: string
+                - name: num
+                  in: query
+                  schema:
+                    type: string
+                - name: numTwo
+                  in: query
+                  schema:
+                    type: string
+                - name: numThree
+                  in: query
+                  schema:
+                    type: string
+                - name: numFour
+                  in: query
+                  schema:
+                    type: string
+                - name: openStatus
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAddressBoxReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_all:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetAll
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAllReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_all_info:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetAllInfo
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAllInfoReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_all_two:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetAllTwo
+            parameters:
+                - name: contract
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetAllTwoReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_array:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetArray
+            parameters:
+                - name: reqType
+                  in: query
+                  schema:
+                    type: string
+                - name: contract
+                  in: query
+                  schema:
+                    type: string
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetArrayReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_all:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxAllLength
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxAllReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_buy_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxBuyEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxBuyEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_list_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxListEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxListEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_mint_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxMintEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxMintEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_mint_event_fix:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxMintEventFix
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxMintEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_new:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxNew
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxNewReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_open:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxOpen
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxOpenReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_open_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxOpenEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxOpenEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_reward_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxRewardEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxRewardEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_transfer_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxTransferEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxTransferEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_box_unlist_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBoxUnListEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBoxUnListEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_buy:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBuyByOrderId
+            parameters:
+                - name: orderId
+                  in: query
+                  schema:
+                    type: string
+                - name: contract
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBuyByOrderIdReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_buy_aicat_by_order_id:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBuyAICATByOrderId
+            parameters:
+                - name: orderId
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBuyAICATByOrderIdReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_buy_box_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBuyBoxList
+            parameters:
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBuyBoxListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_buy_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBuyEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBuyEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_buy_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetBuyList
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetBuyListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_daily_fee:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetDailyFee
+            parameters:
+                - name: ts
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetDailyFeeReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_exchange_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetExchangeEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetExchangeEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_exchange_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetExchangeList
+            parameters:
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetExchangeListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_lp:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetLpByOrderId
+            parameters:
+                - name: orderId
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetLpByOrderIdReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_market_box_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetMarketList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: string
+                - name: numTwo
+                  in: query
+                  schema:
+                    type: string
+                - name: num
+                  in: query
+                  schema:
+                    type: string
+                - name: numThree
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetMarketListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_reserves:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetReserves
+            parameters:
+                - name: pair
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetReservesReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_reward_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetRewardList
+            parameters:
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: string
+                - name: reason
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetRewardListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_sell_box_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetSellBoxList
+            parameters:
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSellBoxListReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_sell_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetSellEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSellEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_user_lp:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserLp
+            parameters:
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserLpReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_user_r_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserREvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserREventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/remove_liquidity:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_RemoveLiquidity
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RemoveLiquidityRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RemoveLiquidityReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/send_aicat:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_SendAICAT
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SendAICATRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SendAICATReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/set_reward:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_SetReward
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SetRewardRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SetRewardReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/set_reward_two:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_SetRewardTwo
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SetRewardRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SetRewardReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/transaction:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_SendTransaction
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SendTransactionRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SendTransactionReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/transaction/{tx}:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_Transaction
+            parameters:
+                - name: tx
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TransactionReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/transaction_eth:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_SendTransactionEth
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SendTransactionEthRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SendTransactionEthReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/update_box:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_UpdateBox
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateBoxReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/usdt_balance:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_TokenBalance
+            parameters:
+                - name: token
+                  in: query
+                  schema:
+                    type: string
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TokenBalanceReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/verify_sig:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_VerifySig
+            parameters:
+                - name: sign
+                  in: query
+                  schema:
+                    type: string
+                - name: content
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/VerifySigReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/withdraw:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_WithdrawAICAT
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/WithdrawAICATRequest_SendBody'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/WithdrawAICATReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+components:
+    schemas:
+        AddLiquidityReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        AddLiquidityRequest_SendBody:
+            type: object
+            properties:
+                orderId:
+                    type: string
+                user:
+                    type: string
+                amountUsdt:
+                    type: string
+                amountAicat:
+                    type: string
+        AddWhiteReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        BuyAICATReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        BuyAICATRequest_SendBody:
+            type: object
+            properties:
+                orderId:
+                    type: string
+                usdtAmount:
+                    type: string
+                contract:
+                    type: string
+        EthBalanceReply:
+            type: object
+            properties:
+                balance:
+                    type: string
+                err:
+                    type: string
+        GenerateKeyReply:
+            type: object
+            properties:
+                address:
+                    type: string
+                privateKey:
+                    type: string
+                err:
+                    type: string
+        GetAddressBoxReply:
+            type: object
+            properties:
+                count:
+                    type: string
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetAddressBoxReply_List'
+        GetAddressBoxReply_List:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                priceUsdt:
+                    type: number
+                    format: double
+                tier:
+                    type: string
+                priceUsdtNow:
+                    type: number
+                    format: double
+                blockTime:
+                    type: string
+                listTime:
+                    type: string
+                openStatus:
+                    type: string
+                openTime:
+                    type: string
+                minter:
+                    type: string
+        GetAllInfoReply:
+            type: object
+            properties:
+                userCount:
+                    type: string
+                todayUserCount:
+                    type: string
+                todayMintedCount:
+                    type: string
+                todayMintedSum:
+                    type: string
+                mintedCount:
+                    type: string
+                mintedSum:
+                    type: string
+                mintedCountNoOpen:
+                    type: string
+                mintedSumNoOpen:
+                    type: string
+                mintedCountOne:
+                    type: string
+                mintedSumOne:
+                    type: string
+                mintedCountTwo:
+                    type: string
+                mintedSumTwo:
+                    type: string
+                mintedCountThree:
+                    type: string
+                mintedSumThree:
+                    type: string
+                buyCount:
+                    type: string
+                buySum:
+                    type: string
+                todayBuyCount:
+                    type: string
+                todayBuySum:
+                    type: string
+                openReward:
+                    type: string
+        GetAllReply:
+            type: object
+            properties:
+                buyArrayLength:
+                    type: string
+                reqLpArrayLength:
+                    type: string
+                withdrawArrayLength:
+                    type: string
+        GetAllTwoReply:
+            type: object
+            properties:
+                buyArrayLength:
+                    type: string
+        GetArrayReply:
+            type: object
+            properties:
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetArrayReply_List'
+        GetArrayReply_List:
+            type: object
+            properties:
+                orderId:
+                    type: string
+        GetBoxAllReply:
+            type: object
+            properties:
+                newLength:
+                    type: string
+                openLength:
+                    type: string
+        GetBoxBuyEventReply:
+            type: object
+            properties: {}
+        GetBoxListEventReply:
+            type: object
+            properties: {}
+        GetBoxMintEventReply:
+            type: object
+            properties: {}
+        GetBoxNewReply:
+            type: object
+            properties:
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetBoxNewReply_List'
+        GetBoxNewReply_List:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                price:
+                    type: string
+                openedAt:
+                    type: string
+                mintAt:
+                    type: string
+                reward:
+                    type: string
+                rewardAt:
+                    type: string
+        GetBoxOpenEventReply:
+            type: object
+            properties: {}
+        GetBoxOpenReply:
+            type: object
+            properties:
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetBoxOpenReply_List'
+        GetBoxOpenReply_List:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                price:
+                    type: string
+                openedAt:
+                    type: string
+                mintAt:
+                    type: string
+                reward:
+                    type: string
+                rewardAt:
+                    type: string
+        GetBoxRewardEventReply:
+            type: object
+            properties: {}
+        GetBoxTransferEventReply:
+            type: object
+            properties: {}
+        GetBoxUnListEventReply:
+            type: object
+            properties: {}
+        GetBuyAICATByOrderIdReply:
+            type: object
+            properties:
+                amount:
+                    type: string
+        GetBuyBoxListReply:
+            type: object
+            properties:
+                count:
+                    type: string
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetBuyBoxListReply_List'
+        GetBuyBoxListReply_List:
+            type: object
+            properties:
+                user:
+                    type: string
+                tokenId:
+                    type: string
+                priceUsdt:
+                    type: number
+                    format: double
+                feeUsdt:
+                    type: number
+                    format: double
+                feeB:
+                    type: number
+                    format: double
+                blockTime:
+                    type: string
+        GetBuyByOrderIdReply:
+            type: object
+            properties:
+                usdtArray:
+                    type: string
+                catArray:
+                    type: string
+        GetBuyEventReply:
+            type: object
+            properties: {}
+        GetBuyListReply:
+            type: object
+            properties:
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetBuyListReply_List'
+        GetBuyListReply_List:
+            type: object
+            properties:
+                blockTime:
+                    type: string
+                price:
+                    type: number
+                    format: double
+                usdtUse:
+                    type: number
+                    format: double
+                ausdGrossOut:
+                    type: number
+                    format: double
+        GetDailyFeeReply:
+            type: object
+            properties:
+                ammount:
+                    type: string
+        GetExchangeEventReply:
+            type: object
+            properties: {}
+        GetExchangeListReply:
+            type: object
+            properties:
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetExchangeListReply_List'
+        GetExchangeListReply_List:
+            type: object
+            properties:
+                blockTime:
+                    type: string
+                price:
+                    type: number
+                    format: double
+        GetLpByOrderIdReply:
+            type: object
+            properties:
+                lpArray:
+                    type: string
+                lpUsdtArray:
+                    type: string
+                lpCatArray:
+                    type: string
+        GetMarketListReply:
+            type: object
+            properties:
+                count:
+                    type: string
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetMarketListReply_List'
+        GetMarketListReply_List:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                priceUsdt:
+                    type: number
+                    format: double
+                tier:
+                    type: string
+                priceUsdtNow:
+                    type: number
+                    format: double
+                blockTime:
+                    type: string
+                listTime:
+                    type: string
+                minter:
+                    type: string
+        GetReservesReply:
+            type: object
+            properties:
+                reservesOne:
+                    type: string
+                reservesTwo:
+                    type: string
+        GetRewardListReply:
+            type: object
+            properties:
+                count:
+                    type: string
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetRewardListReply_List'
+        GetRewardListReply_List:
+            type: object
+            properties:
+                user:
+                    type: string
+                reason:
+                    type: string
+                amount:
+                    type: number
+                    format: double
+                blockTime:
+                    type: string
+        GetSellBoxListReply:
+            type: object
+            properties:
+                count:
+                    type: string
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GetSellBoxListReply_List'
+        GetSellBoxListReply_List:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                priceUsdt:
+                    type: number
+                    format: double
+                feeUsdt:
+                    type: number
+                    format: double
+                feeB:
+                    type: number
+                    format: double
+                blockTime:
+                    type: string
+        GetSellEventReply:
+            type: object
+            properties: {}
+        GetUserLpReply:
+            type: object
+            properties:
+                lpAmount:
+                    type: string
+                lpAmountTotal:
+                    type: string
+        GetUserREventReply:
+            type: object
+            properties: {}
+        GoogleProtobufAny:
+            type: object
+            properties:
+                '@type':
+                    type: string
+                    description: The type of the serialized message.
+            additionalProperties: true
+            description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
+        RemoveLiquidityReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        RemoveLiquidityRequest_SendBody:
+            type: object
+            properties:
+                orderId:
+                    type: string
+                user:
+                    type: string
+                liquidityAmount:
+                    type: string
+        SendAICATReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        SendAICATRequest_SendBody:
+            type: object
+            properties: {}
+        SendTransactionEthReply:
+            type: object
+            properties:
+                tx:
+                    type: string
+                err:
+                    type: string
+        SendTransactionEthRequest_SendBody:
+            type: object
+            properties:
+                privateKey:
+                    type: string
+                toAddr:
+                    type: string
+                amount:
+                    type: string
+        SendTransactionReply:
+            type: object
+            properties:
+                tx:
+                    type: string
+                err:
+                    type: string
+        SendTransactionRequest_SendBody:
+            type: object
+            properties:
+                privateKey:
+                    type: string
+                toAddr:
+                    type: string
+                token:
+                    type: string
+                amount:
+                    type: string
+        SetRewardReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        SetRewardRequest_SendBody:
+            type: object
+            properties:
+                tokenId:
+                    type: string
+                reward:
+                    type: string
+        Status:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+                    format: int32
+                message:
+                    type: string
+                    description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+                details:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GoogleProtobufAny'
+                    description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
+            description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
+        TokenBalanceReply:
+            type: object
+            properties:
+                balance:
+                    type: string
+                err:
+                    type: string
+        TransactionReply:
+            type: object
+            properties:
+                status:
+                    type: string
+        UpdateBoxReply:
+            type: object
+            properties: {}
+        VerifySigReply:
+            type: object
+            properties:
+                res:
+                    type: boolean
+                address:
+                    type: string
+        WithdrawAICATReply:
+            type: object
+            properties:
+                res:
+                    type: string
+        WithdrawAICATRequest_SendBody:
+            type: object
+            properties:
+                token:
+                    type: string
+                amount:
+                    type: string
+                address:
+                    type: string
+                contract:
+                    type: string
+tags:
+    - name: Transaction
