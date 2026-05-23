@@ -58,6 +58,9 @@ const (
 	Transaction_GetBoxOpenEvent_FullMethodName      = "/api.requestEth.v1.Transaction/GetBoxOpenEvent"
 	Transaction_GetBoxTransferEvent_FullMethodName  = "/api.requestEth.v1.Transaction/GetBoxTransferEvent"
 	Transaction_GetUserREvent_FullMethodName        = "/api.requestEth.v1.Transaction/GetUserREvent"
+	Transaction_SetUser_FullMethodName              = "/api.requestEth.v1.Transaction/SetUser"
+	Transaction_PQueue_FullMethodName               = "/api.requestEth.v1.Transaction/PQueue"
+	Transaction_GetBindUserEvent_FullMethodName     = "/api.requestEth.v1.Transaction/GetBindUserEvent"
 	Transaction_GetExchangeList_FullMethodName      = "/api.requestEth.v1.Transaction/GetExchangeList"
 	Transaction_GetBuyList_FullMethodName           = "/api.requestEth.v1.Transaction/GetBuyList"
 	Transaction_GetRewardList_FullMethodName        = "/api.requestEth.v1.Transaction/GetRewardList"
@@ -112,6 +115,9 @@ type TransactionClient interface {
 	GetBoxOpenEvent(ctx context.Context, in *GetBoxOpenEventRequest, opts ...grpc.CallOption) (*GetBoxOpenEventReply, error)
 	GetBoxTransferEvent(ctx context.Context, in *GetBoxTransferEventRequest, opts ...grpc.CallOption) (*GetBoxTransferEventReply, error)
 	GetUserREvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
+	SetUser(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
+	PQueue(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
+	GetBindUserEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error)
 	GetBuyList(ctx context.Context, in *GetBuyListRequest, opts ...grpc.CallOption) (*GetBuyListReply, error)
 	GetRewardList(ctx context.Context, in *GetRewardListRequest, opts ...grpc.CallOption) (*GetRewardListReply, error)
@@ -482,6 +488,33 @@ func (c *transactionClient) GetUserREvent(ctx context.Context, in *GetUserREvent
 	return out, nil
 }
 
+func (c *transactionClient) SetUser(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error) {
+	out := new(GetUserREventReply)
+	err := c.cc.Invoke(ctx, Transaction_SetUser_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) PQueue(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error) {
+	out := new(GetUserREventReply)
+	err := c.cc.Invoke(ctx, Transaction_PQueue_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetBindUserEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error) {
+	out := new(GetUserREventReply)
+	err := c.cc.Invoke(ctx, Transaction_GetBindUserEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *transactionClient) GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error) {
 	out := new(GetExchangeListReply)
 	err := c.cc.Invoke(ctx, Transaction_GetExchangeList_FullMethodName, in, out, opts...)
@@ -606,6 +639,9 @@ type TransactionServer interface {
 	GetBoxOpenEvent(context.Context, *GetBoxOpenEventRequest) (*GetBoxOpenEventReply, error)
 	GetBoxTransferEvent(context.Context, *GetBoxTransferEventRequest) (*GetBoxTransferEventReply, error)
 	GetUserREvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	SetUser(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	PQueue(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetBindUserEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error)
 	GetBuyList(context.Context, *GetBuyListRequest) (*GetBuyListReply, error)
 	GetRewardList(context.Context, *GetRewardListRequest) (*GetRewardListReply, error)
@@ -738,6 +774,15 @@ func (UnimplementedTransactionServer) GetBoxTransferEvent(context.Context, *GetB
 }
 func (UnimplementedTransactionServer) GetUserREvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserREvent not implemented")
+}
+func (UnimplementedTransactionServer) SetUser(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetUser not implemented")
+}
+func (UnimplementedTransactionServer) PQueue(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PQueue not implemented")
+}
+func (UnimplementedTransactionServer) GetBindUserEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBindUserEvent not implemented")
 }
 func (UnimplementedTransactionServer) GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeList not implemented")
@@ -1481,6 +1526,60 @@ func _Transaction_GetUserREvent_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Transaction_SetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).SetUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_SetUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).SetUser(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_PQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).PQueue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_PQueue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).PQueue(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetBindUserEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetBindUserEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetBindUserEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetBindUserEvent(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Transaction_GetExchangeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetExchangeListRequest)
 	if err := dec(in); err != nil {
@@ -1805,6 +1904,18 @@ var Transaction_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserREvent",
 			Handler:    _Transaction_GetUserREvent_Handler,
+		},
+		{
+			MethodName: "SetUser",
+			Handler:    _Transaction_SetUser_Handler,
+		},
+		{
+			MethodName: "PQueue",
+			Handler:    _Transaction_PQueue_Handler,
+		},
+		{
+			MethodName: "GetBindUserEvent",
+			Handler:    _Transaction_GetBindUserEvent_Handler,
 		},
 		{
 			MethodName: "GetExchangeList",

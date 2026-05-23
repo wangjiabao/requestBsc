@@ -253,6 +253,24 @@ service Transaction {
     };
   }
 
+  rpc SetUser (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/set_user"
+    };
+  }
+
+  rpc PQueue (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/p_queue"
+    };
+  }
+
+  rpc GetBindUserEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_bind_user_event"
+    };
+  }
+
   rpc GetExchangeList (GetExchangeListRequest) returns (GetExchangeListReply) {
     option (google.api.http) = {
       get: "/api/get_exchange_list"

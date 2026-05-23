@@ -2868,6 +2868,443 @@ func (s *TransactionService) GetAllInfo(ctx context.Context, req *pb.GetAllInfoR
 	return s.ac.GetAllInfo(ctx, req)
 }
 
+func (s *TransactionService) GetBindUserEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	for i := 1; i <= 12; i++ {
+		urls := []string{
+			"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+		}
+
+		last := uint64(0)
+
+		var (
+			rLast *biz.BindReferral
+			errT  error
+		)
+		rLast, errT = s.ac.GetBindReferralLast(ctx)
+		if nil != errT {
+			return nil, errT
+		}
+
+		if nil != rLast {
+			last = rLast.BlockNumber
+		}
+
+		now := time.Now().UTC()
+		if end.Before(now) {
+			break
+		}
+
+		var (
+			events  []BindReferralEvent
+			newLast uint64
+		)
+
+		for _, url := range urls {
+			client, err := ethclient.DialContext(ctx, url)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			events, newLast, err = PollBindReferralIncremental(ctx, client, last)
+			if err != nil {
+				fmt.Println(err)
+				// 换下一个 RPC
+				continue
+			}
+
+			if 0 >= len(events) {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
+			if last >= newLast {
+				continue
+			}
+
+			for _, v := range events {
+				if last >= v.BlockNumber {
+					break
+				}
+
+				var level int8
+				level, err = levelOf(v.User.String(), client)
+				if nil != err {
+					fmt.Println(err, level, v.User.String())
+				}
+
+				err = s.ac.InsertBindReferral(ctx, &biz.BindReferral{
+					BlockNumber: v.BlockNumber,
+					BlockTime:   v.BlockTime,
+					LogIndex:    v.LogIndex,
+					UserAddr:    v.User.String(),
+					ParentAddr:  v.Parent.String(),
+					Level:       level,
+				})
+				if nil != err {
+					fmt.Println("insert user r err", err)
+				}
+			}
+		}
+
+		time.Sleep(4 * time.Second)
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) SetUser(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	urls := []string{
+		"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+	}
+
+	contract := "0x7926fb18Bc88B5567d61c41Fd11497D3D16bce36"
+	//hashContent := "-1"
+	for _, urlTmp := range urls {
+		client, err := ethclient.Dial(urlTmp)
+		if err != nil {
+			fmt.Println("client error:", err)
+			continue
+		}
+		defer client.Close()
+
+		rLast, errT := s.ac.GetBindReferrals(ctx)
+		if errT != nil {
+			return nil, errT
+		}
+
+		tmpTotal := len(rLast)
+		if tmpTotal <= 0 {
+			return nil, nil
+		}
+
+		tokenAddress := common.HexToAddress(contract)
+
+		instance, err := NewUser(tokenAddress, client)
+		if err != nil {
+			fmt.Println("NewUser error:", err)
+			continue
+		}
+
+		privateKey, err := crypto.HexToECDSA("")
+		if err != nil {
+			fmt.Println("private key error:", err)
+			continue
+		}
+
+		chainID := big.NewInt(56)
+
+		authUser, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+		if err != nil {
+			fmt.Println("auth error:", err)
+			continue
+		}
+
+		const batchSize = 10
+
+		users := make([]common.Address, 0, batchSize)
+		parents := make([]common.Address, 0, batchSize)
+		extraPerfs := make([]*big.Int, 0, batchSize)
+
+		sendBatch := func() error {
+			if len(users) == 0 {
+				return nil
+			}
+
+			fmt.Println("sending batch:", len(users))
+
+			tx, err := instance.InitUsers(&bind.TransactOpts{
+				From:   authUser.From,
+				Signer: authUser.Signer,
+
+				// GasLimit = 0 会自动估算。
+				// 如果 200 个太大估算失败，可以改成 100 或者设置固定 gas。
+				GasLimit: 10000000,
+			}, users, parents, extraPerfs)
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("InitUsers tx:", tx.Hash().Hex())
+
+			// 等待上链，避免连续发送 nonce 或 RPC pending 状态问题。
+			receipt, err := bind.WaitMined(ctx, client, tx)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("InitUsers mined:", tx.Hash().Hex(), "status:", receipt.Status, "block:", receipt.BlockNumber.Uint64())
+
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return fmt.Errorf("InitUsers tx failed: %s", tx.Hash().Hex())
+			}
+
+			// 清空 batch
+			users = users[:0]
+			parents = parents[:0]
+			extraPerfs = extraPerfs[:0]
+
+			return nil
+		}
+
+		for i := 0; i < tmpTotal; i++ {
+			item := rLast[i]
+
+			userAddr := common.HexToAddress(item.UserAddr)
+			parentAddr := common.HexToAddress(item.ParentAddr)
+
+			extraPerf := levelToExtraPerf(int(item.Level))
+
+			fmt.Println(item.UserAddr, item.ParentAddr, extraPerf)
+			users = append(users, userAddr)
+			parents = append(parents, parentAddr)
+			extraPerfs = append(extraPerfs, extraPerf)
+
+			// 每 200 个发一次；最后不足 200 也发一次
+			if len(users) >= batchSize || i == tmpTotal-1 {
+				if err := sendBatch(); err != nil {
+					fmt.Println("InitUsers batch error:", err)
+
+					// 当前 RPC 失败，换下一个 RPC
+					break
+				}
+				time.Sleep(12 * time.Second)
+			}
+		}
+
+		// 如果这个 RPC 成功跑完，你可以直接 return，不用继续换下一个 url
+		return &pb.GetUserREventReply{}, nil
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	urls := []string{
+		"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+	}
+
+	contract := "0x547c95E04b4b8e6D6956acF4d0B22E8a81F79722"
+
+	// 建议先小一点，5 或 10
+	batchSize := uint64(15)
+
+	for _, urlTmp := range urls {
+		client, err := ethclient.Dial(urlTmp)
+		if err != nil {
+			fmt.Println("client error:", err)
+			continue
+		}
+		defer client.Close()
+
+		tokenAddress := common.HexToAddress(contract)
+
+		instance, err := NewStakingNew(tokenAddress, client)
+		if err != nil {
+			fmt.Println("NewStaking error:", err)
+			continue
+		}
+
+		privateKey, err := crypto.HexToECDSA("")
+		if err != nil {
+			fmt.Println("private key error:", err)
+			continue
+		}
+
+		chainID := big.NewInt(56)
+
+		authUser, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+		if err != nil {
+			fmt.Println("auth error:", err)
+			continue
+		}
+
+		for round := 0; round < 25; round++ {
+
+			// 每次都重新取 nonce，避免连续交易 nonce 混乱
+			nonce, err := client.PendingNonceAt(ctx, authUser.From)
+			if err != nil {
+				fmt.Println("get nonce error:", err)
+				break
+			}
+
+			gasPrice, err := client.SuggestGasPrice(ctx)
+			if err != nil {
+				fmt.Println("suggest gas price error:", err)
+				break
+			}
+
+			txOpts := &bind.TransactOpts{
+				From:     authUser.From,
+				Signer:   authUser.Signer,
+				Nonce:    big.NewInt(int64(nonce)),
+				GasPrice: gasPrice,
+
+				// 给高一点上限，真正消耗多少按实际算
+				// 关键不是把 gasLimit 无限拉高，而是 batchSize 别太大
+				GasLimit: 3000000,
+				Context:  ctx,
+			}
+
+			fmt.Printf("start process queue, round=%d, batchSize=%d, nonce=%d, gasPrice=%s\n",
+				round, batchSize, nonce, gasPrice.String())
+
+			tx, err := instance.ProcessQueue(txOpts, new(big.Int).SetUint64(batchSize))
+			if err != nil {
+				// 这里一般就是：
+				// 1. 没有可处理队列，合约直接 revert
+				// 2. gas 估算/执行失败
+				// 3. nonce / rpc 问题
+				fmt.Println("ProcessQueue error:", err)
+				fmt.Println("queue finished or tx failed, stop")
+				break
+			}
+
+			fmt.Println("p queue tx:", tx.Hash().Hex())
+
+			receipt, err := bind.WaitMined(ctx, client, tx)
+			if err != nil {
+				fmt.Println("wait mined error:", err)
+				break
+			}
+
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				fmt.Println("ProcessQueue tx failed:", tx.Hash().Hex())
+				break
+			}
+
+			fmt.Printf("ProcessQueue success, tx=%s, block=%d, gasUsed=%d\n",
+				tx.Hash().Hex(), receipt.BlockNumber.Uint64(), receipt.GasUsed)
+
+			// 稍微停一下，避免 RPC/pending 压力太大
+			time.Sleep(2 * time.Second)
+		}
+
+		return &pb.GetUserREventReply{}, nil
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+func levelToExtraPerf(level int) *big.Int {
+	switch level {
+	case 0:
+		return mustBigInt("200000000000000000000")
+	case 1:
+		return mustBigInt("10000000000000000000000")
+	case 2:
+		return mustBigInt("50000000000000000000000")
+	case 3:
+		return mustBigInt("200000000000000000000000")
+	case 4:
+		return mustBigInt("500000000000000000000000")
+	case 5:
+		return mustBigInt("2000000000000000000000000")
+	case 6:
+		return mustBigInt("7500000000000000000000000")
+	case 7:
+		return mustBigInt("15000000000000000000000000")
+	default:
+		return big.NewInt(0)
+	}
+}
+
+func mustBigInt(s string) *big.Int {
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		panic("invalid big int: " + s)
+	}
+	return v
+}
+
+func levelOf(add string, client *ethclient.Client) (int8, error) {
+	tokenAddress := common.HexToAddress("0xd4Cf2462cee8f7fC149914E1C24FAdC6DD044081")
+	instance, err := NewBindUser(tokenAddress, client)
+	if err != nil {
+		fmt.Println("NewPair error:", err)
+		return -1, err
+	}
+
+	return instance.LevelOf(&bind.CallOpts{}, common.HexToAddress(add))
+}
+
+func (s *TransactionService) GetStakeEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	for i := 1; i <= 12; i++ {
+		urls := []string{
+			"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+		}
+
+		last := uint64(0)
+
+		var (
+			rLast *biz.BindReferral
+			errT  error
+		)
+		rLast, errT = s.ac.GetBindReferralLast(ctx)
+		if nil != errT {
+			return nil, errT
+		}
+
+		if nil != rLast {
+			last = rLast.BlockNumber
+		}
+
+		now := time.Now().UTC()
+		if end.Before(now) {
+			break
+		}
+
+		var (
+			events  []BindReferralEvent
+			newLast uint64
+		)
+
+		for _, url := range urls {
+			client, err := ethclient.DialContext(ctx, url)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			events, newLast, err = PollBindReferralIncremental(ctx, client, last)
+			if err != nil {
+				fmt.Println(err)
+				// 换下一个 RPC
+				continue
+			}
+
+			if 0 >= len(events) {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
+			if last >= newLast {
+				continue
+			}
+
+			for _, v := range events {
+				if last >= v.BlockNumber {
+					break
+				}
+				err = s.ac.InsertBindReferral(ctx, &biz.BindReferral{
+					BlockNumber: v.BlockNumber,
+					BlockTime:   v.BlockTime,
+					LogIndex:    v.LogIndex,
+					UserAddr:    v.User.String(),
+					ParentAddr:  v.Parent.String(),
+				})
+				if nil != err {
+					fmt.Println("insert user r err", err)
+				}
+			}
+		}
+
+		time.Sleep(4 * time.Second)
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
@@ -5108,4 +5545,224 @@ func PollRegisteredIncremental(ctx context.Context, client *ethclient.Client, la
 		return nil, lastProcessedFromDB, err
 	}
 	return evs, safeTo, nil
+}
+
+/* =========================
+   BindReferral 用户绑定事件
+   ========================= */
+
+const (
+	DeployBlockBindReferral uint64 = 92498577
+)
+
+var BindReferralContract = common.HexToAddress("0xd4Cf2462cee8f7fC149914E1C24FAdC6DD044081")
+
+const bindReferralABI = `[
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "user", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "parent", "type": "address"}
+    ],
+    "name": "BindReferral",
+    "type": "event"
+  }
+]`
+
+type BindReferralEvent struct {
+	BlockNumber uint64
+	LogIndex    uint
+	BlockTime   uint64 // 秒级
+
+	// indexed
+	User   common.Address
+	Parent common.Address
+}
+
+func parseBindReferral(a abi.ABI, lg types.Log) (BindReferralEvent, error) {
+	ev, ok := a.Events["BindReferral"]
+	if !ok {
+		return BindReferralEvent{}, fmt.Errorf("event BindReferral not found in ABI")
+	}
+
+	// topics: [eventId, user, parent]
+	if len(lg.Topics) != 3 {
+		return BindReferralEvent{}, fmt.Errorf("bad topics len=%d", len(lg.Topics))
+	}
+
+	if lg.Topics[0] != ev.ID {
+		return BindReferralEvent{}, fmt.Errorf("topic0 mismatch")
+	}
+
+	out := BindReferralEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+
+		User:   common.BytesToAddress(lg.Topics[1].Bytes()),
+		Parent: common.BytesToAddress(lg.Topics[2].Bytes()),
+	}
+
+	// BindReferral 没有非 indexed 参数，data 正常应该为空
+	if len(lg.Data) != 0 {
+		return BindReferralEvent{}, fmt.Errorf("BindReferral data should be empty, got len=%d", len(lg.Data))
+	}
+
+	return out, nil
+}
+
+// ✅ 简单重试：最多 5 次
+func filterLogsRetryBindReferral(ctx context.Context, client *ethclient.Client, q ethereum.FilterQuery) ([]types.Log, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		logs, err := client.FilterLogs(ctx, q)
+		if err == nil {
+			return logs, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+	return nil, lastErr
+}
+
+// ✅ 简单重试：最多 5 次
+func headerByNumberRetryBindReferral(ctx context.Context, client *ethclient.Client, bn uint64) (*types.Header, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		h, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(bn))
+		if err == nil {
+			return h, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+	return nil, lastErr
+}
+
+func fillBlockTimesBindReferral(ctx context.Context, client *ethclient.Client, evs []BindReferralEvent) error {
+	cache := make(map[uint64]uint64, 256)
+
+	for i := range evs {
+		bn := evs[i].BlockNumber
+
+		if ts, ok := cache[bn]; ok {
+			evs[i].BlockTime = ts
+			continue
+		}
+
+		h, err := headerByNumberRetryBindReferral(ctx, client, bn)
+		if err != nil {
+			return fmt.Errorf("HeaderByNumber(%d): %w", bn, err)
+		}
+
+		cache[bn] = h.Time
+		evs[i].BlockTime = h.Time
+	}
+
+	return nil
+}
+
+// FetchBindReferralByRange 按 [fromBlock, toBlock] 拉取 BindReferral，并填充 BlockTime(秒)
+func FetchBindReferralByRange(ctx context.Context, client *ethclient.Client, contract common.Address, fromBlock, toBlock uint64) ([]BindReferralEvent, error) {
+	if toBlock < fromBlock {
+		return []BindReferralEvent{}, nil
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(bindReferralABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse abi: %w", err)
+	}
+
+	bindReferralID := parsedABI.Events["BindReferral"].ID
+
+	res := make([]BindReferralEvent, 0, 256)
+
+	for start := fromBlock; start <= toBlock; start += QueryStep {
+		end := start + QueryStep - 1
+		if end > toBlock {
+			end = toBlock
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start),
+			ToBlock:   new(big.Int).SetUint64(end),
+			Addresses: []common.Address{contract},
+			Topics:    [][]common.Hash{{bindReferralID}},
+		}
+
+		logs, err := filterLogsRetryBindReferral(ctx, client, q)
+		if err != nil {
+			return nil, fmt.Errorf("FilterLogs [%d,%d]: %w", start, end, err)
+		}
+
+		for _, lg := range logs {
+			ev, err := parseBindReferral(parsedABI, lg)
+			if err != nil {
+				return nil, fmt.Errorf("parse log tx=%s idx=%d: %w", lg.TxHash.Hex(), lg.Index, err)
+			}
+			res = append(res, ev)
+		}
+	}
+
+	if err := fillBlockTimesBindReferral(ctx, client, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// PollBindReferralIncremental：增量拉取 + latest-Confirmations
+func PollBindReferralIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []BindReferralEvent, newLastProcessed uint64, err error) {
+	head, err := client.BlockNumber(ctx)
+	if err != nil {
+		return nil, lastProcessedFromDB, fmt.Errorf("BlockNumber: %w", err)
+	}
+
+	if head <= Confirmations {
+		return nil, lastProcessedFromDB, nil
+	}
+
+	safeTo := head - Confirmations
+
+	from := lastProcessedFromDB + 1
+	if from < DeployBlockBindReferral {
+		from = DeployBlockBindReferral
+	}
+
+	if safeTo < from {
+		return []BindReferralEvent{}, lastProcessedFromDB, nil
+	}
+
+	evs, err := FetchBindReferralByRange(ctx, client, BindReferralContract, from, safeTo)
+	if err != nil {
+		return nil, lastProcessedFromDB, err
+	}
+
+	return evs, safeTo, nil
+}
+
+// /////////////////////////////////////////////////////////////
+func accountRateBpsOf(ctx context.Context, client *ethclient.Client, req *pb.TokenBalanceRequest) (int64, error) {
+	tokenAddress := common.HexToAddress(req.Token)
+	instance, err := NewBindUser(tokenAddress, client)
+	if err != nil {
+		return -1, nil
+	}
+
+	address := common.HexToAddress(req.Address)
+	bal, err := instance.RateBpsOf(&bind.CallOpts{}, address)
+	if err != nil {
+		return -1, nil
+	}
+
+	return int64(bal), nil
 }

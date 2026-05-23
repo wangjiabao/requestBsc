@@ -240,6 +240,65 @@ type UserRegistered struct {
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
+type BindReferral struct {
+	ID uint64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+
+	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
+	BlockTime   uint64 `gorm:"column:block_time;not null" json:"block_time"`
+	LogIndex    uint   `gorm:"column:log_index;not null;default:0" json:"log_index"`
+
+	UserAddr   string `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	ParentAddr string `gorm:"column:parent_addr;type:varchar(42);not null" json:"parent_addr"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	CheckStatus uint64 `gorm:"column:check_status;not null;default:0" json:"check_status"`
+	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
+	Level       int
+}
+
+type StakingStaked struct {
+	ID uint64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+
+	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
+	BlockTime   uint64 `gorm:"column:block_time;not null" json:"block_time"`
+	LogIndex    uint   `gorm:"column:log_index;not null;default:0" json:"log_index"`
+
+	UserAddr   string  `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	Amount     float64 `gorm:"column:amount;type:decimal(65,18);not null;default:0" json:"amount"`
+	Timestamp  uint64  `gorm:"column:timestamp;not null;default:0" json:"timestamp"`
+	StakeIndex uint64  `gorm:"column:stake_index;not null;default:0" json:"stake_index"`
+	Duration   uint64  `gorm:"column:duration;not null;default:0" json:"duration"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	CheckStatus uint64 `gorm:"column:check_status;not null;default:0" json:"check_status"`
+	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
+}
+
+type StakingUnstaked struct {
+	ID uint64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+
+	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
+	BlockTime   uint64 `gorm:"column:block_time;not null" json:"block_time"`
+	LogIndex    uint   `gorm:"column:log_index;not null;default:0" json:"log_index"`
+
+	UserAddr   string  `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	Amount     float64 `gorm:"column:amount;type:decimal(65,18);not null;default:0" json:"amount"`
+	Timestamp  uint64  `gorm:"column:timestamp;not null;default:0" json:"timestamp"`
+	StakeIndex uint64  `gorm:"column:stake_index;not null;default:0" json:"stake_index"`
+	Reward     float64 `gorm:"column:reward;type:decimal(65,18);not null;default:0" json:"reward"`
+	TTL        uint64  `gorm:"column:ttl;not null;default:0" json:"ttl"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	CheckStatus uint64 `gorm:"column:check_status;not null;default:0" json:"check_status"`
+	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
+}
+
 type UserRepo struct {
 	data *Data
 	log  *log.Helper
@@ -1823,11 +1882,187 @@ func (u *UserRepo) GetNftOpenCountBySe(ctx context.Context, start, end uint64) i
 	return count
 }
 
-// GetNftOpenSumB 统计时间段内 mint 的 usdt_paid 总和（返回字符串，避免精度问题）
 func (u *UserRepo) GetNftOpenSum() string {
 	var sum string
 	u.data.db.Table("nft_opened").
 		Select("COALESCE(SUM(reward), 0)").
 		Scan(&sum)
 	return sum
+}
+
+func (u *UserRepo) GetBindReferralLast(ctx context.Context) (*biz.BindReferral, error) {
+	var v BindReferral
+
+	if err := u.data.DB(ctx).Table("user_bind_referral").Order("id desc").First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "BIND_REFERRAL_ERROR", err.Error())
+	}
+
+	return &biz.BindReferral{
+		ID:          v.ID,
+		BlockNumber: v.BlockNumber,
+		BlockTime:   v.BlockTime,
+		LogIndex:    v.LogIndex,
+
+		UserAddr:   v.UserAddr,
+		ParentAddr: v.ParentAddr,
+
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+
+		CheckStatus: v.CheckStatus,
+		CheckTime:   v.CheckTime,
+	}, nil
+}
+
+func (u *UserRepo) GetBindReferrals(ctx context.Context) ([]*biz.BindReferral, error) {
+	var user []*BindReferral
+
+	res := make([]*biz.BindReferral, 0)
+	if err := u.data.DB(ctx).Table("user_bind_referral").Order("id asc").Find(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return res, nil
+		}
+		return nil, errors.New(500, "BIND_REFERRAL_ERROR", err.Error())
+	}
+
+	for _, v := range user {
+		res = append(res, &biz.BindReferral{
+			ID:          v.ID,
+			BlockNumber: v.BlockNumber,
+			BlockTime:   v.BlockTime,
+			LogIndex:    v.LogIndex,
+
+			UserAddr:   v.UserAddr,
+			ParentAddr: v.ParentAddr,
+
+			CreatedAt: v.CreatedAt,
+			UpdatedAt: v.UpdatedAt,
+
+			CheckStatus: v.CheckStatus,
+			CheckTime:   v.CheckTime,
+			Level:       int8(v.Level),
+		})
+	}
+	return res, nil
+}
+
+func (u *UserRepo) InsertBindReferral(ctx context.Context, iData *biz.BindReferral) error {
+	var s BindReferral
+
+	s.BlockNumber = iData.BlockNumber
+	s.BlockTime = iData.BlockTime
+	s.LogIndex = iData.LogIndex
+
+	s.UserAddr = iData.UserAddr
+	s.ParentAddr = iData.ParentAddr
+	s.Level = int(iData.Level)
+
+	// ✅ check_status/check_time 默认值交给 DB
+	if err := u.data.DB(ctx).Table("user_bind_referral").Create(&s).Error; err != nil {
+		return errors.New(500, "CREATE_BIND_REFERRAL_ERROR", "信息创建失败")
+	}
+	return nil
+}
+func (u *UserRepo) GetStakingStakedLast(ctx context.Context) (*biz.StakingStaked, error) {
+	var v StakingStaked
+
+	if err := u.data.DB(ctx).Table("staking_staked_event").Order("id desc").First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "STAKING_STAKED_ERROR", err.Error())
+	}
+
+	return &biz.StakingStaked{
+		ID:          v.ID,
+		BlockNumber: v.BlockNumber,
+		BlockTime:   v.BlockTime,
+		LogIndex:    v.LogIndex,
+
+		UserAddr:   v.UserAddr,
+		Amount:     v.Amount,
+		Timestamp:  v.Timestamp,
+		StakeIndex: v.StakeIndex,
+		Duration:   v.Duration,
+
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+
+		CheckStatus: v.CheckStatus,
+		CheckTime:   v.CheckTime,
+	}, nil
+}
+
+func (u *UserRepo) InsertStakingStaked(ctx context.Context, iData *biz.StakingStaked) error {
+	var s StakingStaked
+
+	s.BlockNumber = iData.BlockNumber
+	s.BlockTime = iData.BlockTime
+	s.LogIndex = iData.LogIndex
+
+	s.UserAddr = iData.UserAddr
+	s.Amount = iData.Amount
+	s.Timestamp = iData.Timestamp
+	s.StakeIndex = iData.StakeIndex
+	s.Duration = iData.Duration
+
+	if err := u.data.DB(ctx).Table("staking_staked_event").Create(&s).Error; err != nil {
+		return errors.New(500, "CREATE_STAKING_STAKED_ERROR", "信息创建失败")
+	}
+
+	return nil
+}
+func (u *UserRepo) GetStakingUnstakedLast(ctx context.Context) (*biz.StakingUnstaked, error) {
+	var v StakingUnstaked
+
+	if err := u.data.DB(ctx).Table("staking_unstaked_event").Order("id desc").First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "STAKING_UNSTAKED_ERROR", err.Error())
+	}
+
+	return &biz.StakingUnstaked{
+		ID:          v.ID,
+		BlockNumber: v.BlockNumber,
+		BlockTime:   v.BlockTime,
+		LogIndex:    v.LogIndex,
+
+		UserAddr:   v.UserAddr,
+		Amount:     v.Amount,
+		Timestamp:  v.Timestamp,
+		StakeIndex: v.StakeIndex,
+		Reward:     v.Reward,
+		TTL:        v.TTL,
+
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+
+		CheckStatus: v.CheckStatus,
+		CheckTime:   v.CheckTime,
+	}, nil
+}
+
+func (u *UserRepo) InsertStakingUnstaked(ctx context.Context, iData *biz.StakingUnstaked) error {
+	var s StakingUnstaked
+
+	s.BlockNumber = iData.BlockNumber
+	s.BlockTime = iData.BlockTime
+	s.LogIndex = iData.LogIndex
+
+	s.UserAddr = iData.UserAddr
+	s.Amount = iData.Amount
+	s.Timestamp = iData.Timestamp
+	s.StakeIndex = iData.StakeIndex
+	s.Reward = iData.Reward
+	s.TTL = iData.TTL
+
+	if err := u.data.DB(ctx).Table("staking_unstaked_event").Create(&s).Error; err != nil {
+		return errors.New(500, "CREATE_STAKING_UNSTAKED_ERROR", "信息创建失败")
+	}
+
+	return nil
 }

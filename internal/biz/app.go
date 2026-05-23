@@ -219,6 +219,65 @@ type UserRegistered struct {
 	UpdatedAt time.Time
 }
 
+type BindReferral struct {
+	ID uint64
+
+	BlockNumber uint64
+	BlockTime   uint64
+	LogIndex    uint
+
+	UserAddr   string
+	ParentAddr string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	CheckStatus uint64
+	CheckTime   uint64
+	Level       int8
+}
+
+type StakingStaked struct {
+	ID uint64
+
+	BlockNumber uint64
+	BlockTime   uint64
+	LogIndex    uint
+
+	UserAddr   string
+	Amount     float64
+	Timestamp  uint64
+	StakeIndex uint64
+	Duration   uint64
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	CheckStatus uint64
+	CheckTime   uint64
+}
+
+type StakingUnstaked struct {
+	ID uint64
+
+	BlockNumber uint64
+	BlockTime   uint64
+	LogIndex    uint
+
+	UserAddr   string
+	Amount     float64
+	Timestamp  uint64
+	StakeIndex uint64
+	Reward     float64
+	TTL        uint64
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	CheckStatus uint64
+	CheckTime   uint64
+}
+
 type UserRepo interface {
 	GetSwapTradeLast(ctx context.Context) (*SwapTrade, error)
 	GetSwapTrade(ctx context.Context, start, end uint64) ([]*SwapTrade, error)
@@ -280,6 +339,9 @@ type UserRepo interface {
 	GetNftBuyCount() int64
 	GetNftOpenCountBySe(ctx context.Context, start, end uint64) int64
 	GetNftOpenSum() string
+	GetBindReferralLast(ctx context.Context) (*BindReferral, error)
+	GetBindReferrals(ctx context.Context) ([]*BindReferral, error)
+	InsertBindReferral(ctx context.Context, iData *BindReferral) error
 }
 
 // AppUsecase is an app usecase.
@@ -1100,4 +1162,50 @@ func (ac *AppUsecase) GetAllInfo(ctx context.Context, req *pb.GetAllInfoRequest)
 		MintedCountNoOpen: uint64(ac.userRepo.GetMintNftNotOpenCount(0)),
 		MintedSumNoOpen:   ac.userRepo.GetMintNftNotOpenUsdtPaidSum(0),
 	}, nil
+}
+
+func (ac *AppUsecase) GetBindReferralLast(ctx context.Context) (*BindReferral, error) {
+	var (
+		rLast *BindReferral
+		err   error
+	)
+	rLast, err = ac.userRepo.GetBindReferralLast(ctx)
+	if nil != err || nil == rLast {
+		return nil, err
+	}
+
+	return rLast, nil
+}
+
+func (ac *AppUsecase) GetBindReferrals(ctx context.Context) ([]*BindReferral, error) {
+	var (
+		rLast []*BindReferral
+		err   error
+	)
+	rLast, err = ac.userRepo.GetBindReferrals(ctx)
+	if nil != err || nil == rLast {
+		return nil, err
+	}
+
+	return rLast, nil
+}
+
+func (ac *AppUsecase) InsertBindReferral(ctx context.Context, trade *BindReferral) error {
+	var (
+		err error
+	)
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error { // 事务
+		err = ac.userRepo.InsertBindReferral(ctx, trade)
+		if nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "bind写入mysql错误")
+		return err
+	}
+
+	return err
 }
