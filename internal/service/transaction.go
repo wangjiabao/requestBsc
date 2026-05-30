@@ -3117,7 +3117,7 @@ func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRe
 			continue
 		}
 
-		fmt.Println(uint64(time.Now().UTC().Unix()), tmpHeadQueue.QueuedAt.Uint64())
+		//fmt.Println(uint64(time.Now().UTC().Unix()), tmpHeadQueue.QueuedAt.Uint64())
 		if uint64(time.Now().UTC().Unix()) > tmpHeadQueue.QueuedAt.Uint64() {
 			continue
 		}
