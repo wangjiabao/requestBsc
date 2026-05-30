@@ -265,6 +265,24 @@ service Transaction {
     };
   }
 
+  rpc GetStakeEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_stake"
+    };
+  }
+
+  rpc GetQueueEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_queue_event"
+    };
+  }
+
+  rpc GetQueueArray (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_queue_array"
+    };
+  }
+
   rpc GetBindUserEvent (GetUserREventRequest) returns (GetUserREventReply) {
     option (google.api.http) = {
       get: "/api/get_bind_user_event"

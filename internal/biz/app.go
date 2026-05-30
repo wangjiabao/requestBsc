@@ -278,6 +278,26 @@ type StakingUnstaked struct {
 	CheckTime   uint64
 }
 
+type StakingQueueAdded struct {
+	ID uint64
+
+	BlockNumber uint64
+	BlockTime   uint64
+	LogIndex    uint
+
+	QueueIndex uint64
+	UserAddr   string
+	Amount     float64
+	StakeIndex uint8
+	QueuedAt   uint64
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	CheckStatus uint64
+	CheckTime   uint64
+}
+
 type UserRepo interface {
 	GetSwapTradeLast(ctx context.Context) (*SwapTrade, error)
 	GetSwapTrade(ctx context.Context, start, end uint64) ([]*SwapTrade, error)
@@ -342,6 +362,10 @@ type UserRepo interface {
 	GetBindReferralLast(ctx context.Context) (*BindReferral, error)
 	GetBindReferrals(ctx context.Context) ([]*BindReferral, error)
 	InsertBindReferral(ctx context.Context, iData *BindReferral) error
+	GetStakingStakedLast(ctx context.Context) (*StakingStaked, error)
+	InsertStakingStaked(ctx context.Context, iData *StakingStaked) error
+	GetStakingQueueAddedLast(ctx context.Context) (*StakingQueueAdded, error)
+	InsertStakingQueueAdded(ctx context.Context, iData *StakingQueueAdded) error
 }
 
 // AppUsecase is an app usecase.
@@ -1197,6 +1221,72 @@ func (ac *AppUsecase) InsertBindReferral(ctx context.Context, trade *BindReferra
 
 	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error { // 事务
 		err = ac.userRepo.InsertBindReferral(ctx, trade)
+		if nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "bind写入mysql错误")
+		return err
+	}
+
+	return err
+}
+
+func (ac *AppUsecase) GetStakingStakedLast(ctx context.Context) (*StakingStaked, error) {
+	var (
+		rLast *StakingStaked
+		err   error
+	)
+	rLast, err = ac.userRepo.GetStakingStakedLast(ctx)
+	if nil != err || nil == rLast {
+		return nil, err
+	}
+
+	return rLast, nil
+}
+
+func (ac *AppUsecase) InsertStakingStaked(ctx context.Context, trade *StakingStaked) error {
+	var (
+		err error
+	)
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error { // 事务
+		err = ac.userRepo.InsertStakingStaked(ctx, trade)
+		if nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "bind写入mysql错误")
+		return err
+	}
+
+	return err
+}
+
+func (ac *AppUsecase) GetStakingQueueAddedLast(ctx context.Context) (*StakingQueueAdded, error) {
+	var (
+		rLast *StakingQueueAdded
+		err   error
+	)
+	rLast, err = ac.userRepo.GetStakingQueueAddedLast(ctx)
+	if nil != err || nil == rLast {
+		return nil, err
+	}
+
+	return rLast, nil
+}
+
+func (ac *AppUsecase) InsertStakingQueueAdded(ctx context.Context, trade *StakingQueueAdded) error {
+	var (
+		err error
+	)
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error { // 事务
+		err = ac.userRepo.InsertStakingQueueAdded(ctx, trade)
 		if nil != err {
 			return err
 		}

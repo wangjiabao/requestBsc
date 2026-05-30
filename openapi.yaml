@@ -753,6 +753,42 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/get_queue_array:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetQueueArray
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserREventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_queue_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetQueueEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserREventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
     /api/get_reserves:
         get:
             tags:
@@ -846,6 +882,24 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/GetSellEventReply'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/get_stake:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetStakeEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserREventReply'
                 default:
                     description: Default error response
                     content:

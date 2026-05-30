@@ -299,6 +299,26 @@ type StakingUnstaked struct {
 	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
 }
 
+type StakingQueueAdded struct {
+	ID uint64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+
+	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
+	BlockTime   uint64 `gorm:"column:block_time;not null" json:"block_time"`
+	LogIndex    uint   `gorm:"column:log_index;not null;default:0" json:"log_index"`
+
+	QueueIndex uint64  `gorm:"column:queue_index;not null;default:0" json:"queue_index"`
+	UserAddr   string  `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	Amount     float64 `gorm:"column:amount;type:decimal(65,18);not null;default:0" json:"amount"`
+	StakeIndex uint8   `gorm:"column:stake_index;not null;default:0" json:"stake_index"`
+	QueuedAt   uint64  `gorm:"column:queued_at;not null;default:0" json:"queued_at"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+
+	CheckStatus uint64 `gorm:"column:check_status;not null;default:0" json:"check_status"`
+	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
+}
+
 type UserRepo struct {
 	data *Data
 	log  *log.Helper
@@ -2062,6 +2082,56 @@ func (u *UserRepo) InsertStakingUnstaked(ctx context.Context, iData *biz.Staking
 
 	if err := u.data.DB(ctx).Table("staking_unstaked_event").Create(&s).Error; err != nil {
 		return errors.New(500, "CREATE_STAKING_UNSTAKED_ERROR", "信息创建失败")
+	}
+
+	return nil
+}
+
+func (u *UserRepo) GetStakingQueueAddedLast(ctx context.Context) (*biz.StakingQueueAdded, error) {
+	var v StakingQueueAdded
+
+	if err := u.data.DB(ctx).Table("staking_queue_added_event").Order("id desc").First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "STAKING_QUEUE_ADDED_ERROR", err.Error())
+	}
+
+	return &biz.StakingQueueAdded{
+		ID:          v.ID,
+		BlockNumber: v.BlockNumber,
+		BlockTime:   v.BlockTime,
+		LogIndex:    v.LogIndex,
+
+		QueueIndex: v.QueueIndex,
+		UserAddr:   v.UserAddr,
+		Amount:     v.Amount,
+		StakeIndex: v.StakeIndex,
+		QueuedAt:   v.QueuedAt,
+
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+
+		CheckStatus: v.CheckStatus,
+		CheckTime:   v.CheckTime,
+	}, nil
+}
+
+func (u *UserRepo) InsertStakingQueueAdded(ctx context.Context, iData *biz.StakingQueueAdded) error {
+	var s StakingQueueAdded
+
+	s.BlockNumber = iData.BlockNumber
+	s.BlockTime = iData.BlockTime
+	s.LogIndex = iData.LogIndex
+
+	s.QueueIndex = iData.QueueIndex
+	s.UserAddr = iData.UserAddr
+	s.Amount = iData.Amount
+	s.StakeIndex = iData.StakeIndex
+	s.QueuedAt = iData.QueuedAt
+
+	if err := u.data.DB(ctx).Table("staking_queue_added_event").Create(&s).Error; err != nil {
+		return errors.New(500, "CREATE_STAKING_QUEUE_ADDED_ERROR", "信息创建失败")
 	}
 
 	return nil

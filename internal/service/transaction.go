@@ -3106,6 +3106,22 @@ func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRe
 			continue
 		}
 
+		tmpHead, err := instance.QueueHead(&bind.CallOpts{})
+		if err != nil {
+			fmt.Println("NewStaking error 2:", err)
+			continue
+		}
+		tmpHeadQueue, err := instance.Queue(&bind.CallOpts{}, tmpHead)
+		if err != nil {
+			fmt.Println("NewStaking error 3:", err)
+			continue
+		}
+
+		fmt.Println(uint64(time.Now().UTC().Unix()), tmpHeadQueue.QueuedAt.Uint64())
+		if uint64(time.Now().UTC().Unix()) > tmpHeadQueue.QueuedAt.Uint64() {
+			continue
+		}
+
 		privateKey, err := crypto.HexToECDSA("")
 		if err != nil {
 			fmt.Println("private key error:", err)
@@ -3120,7 +3136,7 @@ func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRe
 			continue
 		}
 
-		for round := 0; round < 25; round++ {
+		for round := 0; round < 1; round++ {
 
 			// 每次都重新取 nonce，避免连续交易 nonce 混乱
 			nonce, err := client.PendingNonceAt(ctx, authUser.From)
@@ -3186,6 +3202,44 @@ func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRe
 
 	return &pb.GetUserREventReply{}, nil
 }
+
+func (s *TransactionService) GetQueueArray(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	urls := []string{
+		"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+	}
+
+	for _, urlTmp := range urls {
+		client, err := ethclient.Dial(urlTmp)
+		if err != nil {
+			fmt.Println("client error:", err)
+			continue
+		}
+
+		contractAddress := "0x3007Fd1A0A808D64Bc269631B98e137d21040850"
+		tokenAddress := common.HexToAddress(contractAddress)
+		instance, err := NewStakeNew(tokenAddress, client)
+		if err != nil {
+			fmt.Println("GetArray error,11:", err)
+			continue
+		}
+
+		// 获取储备量
+		for i := int64(0); i < 1549; i++ {
+			start := new(big.Int).SetInt64(i)
+			tmp, errOne := instance.StakeQueue(&bind.CallOpts{}, start)
+			if errOne != nil {
+				fmt.Println("GetArray error,22:", err, i)
+				i--
+				continue
+			}
+
+			fmt.Println(i, tmp.User, BigIntToFloat64(tmp.Amount, 18), tmp.Canceled)
+		}
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
 func levelToExtraPerf(level int) *big.Int {
 	switch level {
 	case 0:
@@ -3238,10 +3292,10 @@ func (s *TransactionService) GetStakeEvent(ctx context.Context, req *pb.GetUserR
 		last := uint64(0)
 
 		var (
-			rLast *biz.BindReferral
+			rLast *biz.StakingStaked
 			errT  error
 		)
-		rLast, errT = s.ac.GetBindReferralLast(ctx)
+		rLast, errT = s.ac.GetStakingStakedLast(ctx)
 		if nil != errT {
 			return nil, errT
 		}
@@ -3256,7 +3310,7 @@ func (s *TransactionService) GetStakeEvent(ctx context.Context, req *pb.GetUserR
 		}
 
 		var (
-			events  []BindReferralEvent
+			events  []StakedEvent
 			newLast uint64
 		)
 
@@ -3266,7 +3320,7 @@ func (s *TransactionService) GetStakeEvent(ctx context.Context, req *pb.GetUserR
 				fmt.Println(err)
 				continue
 			}
-			events, newLast, err = PollBindReferralIncremental(ctx, client, last)
+			events, newLast, err = PollStakedIncremental(ctx, client, last)
 			if err != nil {
 				fmt.Println(err)
 				// 换下一个 RPC
@@ -3286,12 +3340,99 @@ func (s *TransactionService) GetStakeEvent(ctx context.Context, req *pb.GetUserR
 				if last >= v.BlockNumber {
 					break
 				}
-				err = s.ac.InsertBindReferral(ctx, &biz.BindReferral{
+				err = s.ac.InsertStakingStaked(ctx, &biz.StakingStaked{
 					BlockNumber: v.BlockNumber,
 					BlockTime:   v.BlockTime,
 					LogIndex:    v.LogIndex,
 					UserAddr:    v.User.String(),
-					ParentAddr:  v.Parent.String(),
+					Amount:      BigIntToFloat64(v.Amount, 18),
+					Timestamp:   0,
+					StakeIndex:  v.Index,
+					Duration:    0,
+					CheckStatus: 0,
+					CheckTime:   0,
+				})
+				if nil != err {
+					fmt.Println("insert user r err", err)
+				}
+			}
+		}
+
+		time.Sleep(4 * time.Second)
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetQueueEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	for i := 1; i <= 12; i++ {
+		urls := []string{
+			"https://bnb76086.allnodes.me:8545/OEJmSTgL60w2qgoK",
+		}
+
+		last := uint64(0)
+
+		var (
+			rLast *biz.StakingQueueAdded
+			errT  error
+		)
+		rLast, errT = s.ac.GetStakingQueueAddedLast(ctx)
+		if nil != errT {
+			return nil, errT
+		}
+
+		if nil != rLast {
+			last = rLast.BlockNumber
+		}
+
+		now := time.Now().UTC()
+		if end.Before(now) {
+			break
+		}
+
+		var (
+			events  []QueueAddedEvent
+			newLast uint64
+		)
+
+		for _, url := range urls {
+			client, err := ethclient.DialContext(ctx, url)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			events, newLast, err = PollQueueAddedIncremental(ctx, client, last)
+			if err != nil {
+				fmt.Println(err)
+				// 换下一个 RPC
+				continue
+			}
+
+			if 0 >= len(events) {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
+			if last >= newLast {
+				continue
+			}
+
+			for _, v := range events {
+				if last >= v.BlockNumber {
+					break
+				}
+				err = s.ac.InsertStakingQueueAdded(ctx, &biz.StakingQueueAdded{
+					BlockNumber: v.BlockNumber,
+					BlockTime:   v.BlockTime,
+					LogIndex:    v.LogIndex,
+					UserAddr:    v.User.String(),
+					Amount:      BigIntToFloat64(v.Amount, 18),
+					QueueIndex:  v.QueueIndex,
+					StakeIndex:  v.StakeIndex,
+					QueuedAt:    v.QueuedAt,
+					CheckStatus: 0,
+					CheckTime:   0,
 				})
 				if nil != err {
 					fmt.Println("insert user r err", err)
@@ -5765,4 +5906,726 @@ func accountRateBpsOf(ctx context.Context, client *ethclient.Client, req *pb.Tok
 	}
 
 	return int64(bal), nil
+}
+
+/* =========================
+   StakingV9 Staked / Unstaked 事件
+   ========================= */
+
+const (
+	DeployBlockStakingV9 uint64 = 92501735
+)
+
+var StakingV9Contract = common.HexToAddress("0x3007Fd1A0A808D64Bc269631B98e137d21040850")
+
+const stakingV9EventsABI = `[
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true,  "internalType": "address", "name": "user",      "type": "address"},
+      {"indexed": false, "internalType": "uint160", "name": "amount",    "type": "uint160"},
+      {"indexed": false, "internalType": "uint40",  "name": "timestamp", "type": "uint40"},
+      {"indexed": false, "internalType": "uint256", "name": "index",     "type": "uint256"},
+      {"indexed": false, "internalType": "uint40",  "name": "duration",  "type": "uint40"}
+    ],
+    "name": "Staked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true,  "internalType": "address", "name": "user",      "type": "address"},
+      {"indexed": false, "internalType": "uint160", "name": "amount",    "type": "uint160"},
+      {"indexed": false, "internalType": "uint40",  "name": "timestamp", "type": "uint40"},
+      {"indexed": false, "internalType": "uint256", "name": "index",     "type": "uint256"},
+      {"indexed": false, "internalType": "uint160", "name": "reward",    "type": "uint160"},
+      {"indexed": false, "internalType": "uint40",  "name": "ttl",       "type": "uint40"}
+    ],
+    "name": "Unstaked",
+    "type": "event"
+  }
+]`
+
+type StakedEvent struct {
+	BlockNumber uint64
+	LogIndex    uint
+	BlockTime   uint64 // 秒级
+
+	// indexed
+	User common.Address
+
+	// data
+	Amount    *big.Int
+	Timestamp uint64
+	Index     uint64
+	Duration  uint64
+}
+
+type UnstakedEvent struct {
+	BlockNumber uint64
+	LogIndex    uint
+	BlockTime   uint64 // 秒级
+
+	// indexed
+	User common.Address
+
+	// data
+	Amount    *big.Int
+	Timestamp uint64
+	Index     uint64
+	Reward    *big.Int
+	TTL       uint64
+}
+
+func weiToFloat64(x *big.Int) float64 {
+	if x == nil {
+		return 0
+	}
+
+	f := new(big.Float).SetPrec(256).SetInt(x)
+	denom := new(big.Float).SetPrec(256).SetInt(big.NewInt(1e18))
+	f.Quo(f, denom)
+
+	v, _ := f.Float64()
+	return v
+}
+
+func uintFromBig(name string, v *big.Int, bits int) (uint64, error) {
+	if v == nil {
+		return 0, fmt.Errorf("%s is nil", name)
+	}
+	if v.Sign() < 0 || v.BitLen() > bits {
+		return 0, fmt.Errorf("%s out of uint%d: %s", name, bits, v.String())
+	}
+	return v.Uint64(), nil
+}
+
+func parseStaked(a abi.ABI, lg types.Log) (StakedEvent, error) {
+	ev, ok := a.Events["Staked"]
+	if !ok {
+		return StakedEvent{}, fmt.Errorf("event Staked not found in ABI")
+	}
+
+	// topics: [eventId, user]
+	if len(lg.Topics) != 2 {
+		return StakedEvent{}, fmt.Errorf("bad topics len=%d", len(lg.Topics))
+	}
+
+	if lg.Topics[0] != ev.ID {
+		return StakedEvent{}, fmt.Errorf("topic0 mismatch")
+	}
+
+	out := StakedEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+		User:        common.BytesToAddress(lg.Topics[1].Bytes()),
+	}
+
+	vals, err := ev.Inputs.NonIndexed().Unpack(lg.Data)
+	if err != nil {
+		return StakedEvent{}, fmt.Errorf("unpack data: %w", err)
+	}
+
+	if len(vals) != 4 {
+		return StakedEvent{}, fmt.Errorf("unexpected decoded values len=%d", len(vals))
+	}
+
+	amount, ok := vals[0].(*big.Int)
+	if !ok {
+		return StakedEvent{}, fmt.Errorf("bad type amount: %T", vals[0])
+	}
+
+	timestampBI, ok := vals[1].(*big.Int)
+	if !ok {
+		return StakedEvent{}, fmt.Errorf("bad type timestamp: %T", vals[1])
+	}
+
+	indexBI, ok := vals[2].(*big.Int)
+	if !ok {
+		return StakedEvent{}, fmt.Errorf("bad type index: %T", vals[2])
+	}
+
+	durationBI, ok := vals[3].(*big.Int)
+	if !ok {
+		return StakedEvent{}, fmt.Errorf("bad type duration: %T", vals[3])
+	}
+
+	timestamp, err := uintFromBig("timestamp", timestampBI, 40)
+	if err != nil {
+		return StakedEvent{}, err
+	}
+
+	index, err := uintFromBig("index", indexBI, 64)
+	if err != nil {
+		return StakedEvent{}, err
+	}
+
+	duration, err := uintFromBig("duration", durationBI, 40)
+	if err != nil {
+		return StakedEvent{}, err
+	}
+
+	out.Amount = amount
+	out.Timestamp = timestamp
+	out.Index = index
+	out.Duration = duration
+
+	return out, nil
+}
+
+func parseUnstaked(a abi.ABI, lg types.Log) (UnstakedEvent, error) {
+	ev, ok := a.Events["Unstaked"]
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("event Unstaked not found in ABI")
+	}
+
+	// topics: [eventId, user]
+	if len(lg.Topics) != 2 {
+		return UnstakedEvent{}, fmt.Errorf("bad topics len=%d", len(lg.Topics))
+	}
+
+	if lg.Topics[0] != ev.ID {
+		return UnstakedEvent{}, fmt.Errorf("topic0 mismatch")
+	}
+
+	out := UnstakedEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+		User:        common.BytesToAddress(lg.Topics[1].Bytes()),
+	}
+
+	vals, err := ev.Inputs.NonIndexed().Unpack(lg.Data)
+	if err != nil {
+		return UnstakedEvent{}, fmt.Errorf("unpack data: %w", err)
+	}
+
+	if len(vals) != 5 {
+		return UnstakedEvent{}, fmt.Errorf("unexpected decoded values len=%d", len(vals))
+	}
+
+	amount, ok := vals[0].(*big.Int)
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("bad type amount: %T", vals[0])
+	}
+
+	timestampBI, ok := vals[1].(*big.Int)
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("bad type timestamp: %T", vals[1])
+	}
+
+	indexBI, ok := vals[2].(*big.Int)
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("bad type index: %T", vals[2])
+	}
+
+	reward, ok := vals[3].(*big.Int)
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("bad type reward: %T", vals[3])
+	}
+
+	ttlBI, ok := vals[4].(*big.Int)
+	if !ok {
+		return UnstakedEvent{}, fmt.Errorf("bad type ttl: %T", vals[4])
+	}
+
+	timestamp, err := uintFromBig("timestamp", timestampBI, 40)
+	if err != nil {
+		return UnstakedEvent{}, err
+	}
+
+	index, err := uintFromBig("index", indexBI, 64)
+	if err != nil {
+		return UnstakedEvent{}, err
+	}
+
+	ttl, err := uintFromBig("ttl", ttlBI, 40)
+	if err != nil {
+		return UnstakedEvent{}, err
+	}
+
+	out.Amount = amount
+	out.Timestamp = timestamp
+	out.Index = index
+	out.Reward = reward
+	out.TTL = ttl
+
+	return out, nil
+}
+
+func filterLogsRetryStakingV9(ctx context.Context, client *ethclient.Client, q ethereum.FilterQuery) ([]types.Log, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		logs, err := client.FilterLogs(ctx, q)
+		if err == nil {
+			return logs, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+
+	return nil, lastErr
+}
+
+func headerByNumberRetryStakingV9(ctx context.Context, client *ethclient.Client, bn uint64) (*types.Header, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		h, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(bn))
+		if err == nil {
+			return h, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+
+	return nil, lastErr
+}
+
+func fillBlockTimesStaked(ctx context.Context, client *ethclient.Client, evs []StakedEvent) error {
+	cache := make(map[uint64]uint64, 256)
+
+	for i := range evs {
+		bn := evs[i].BlockNumber
+
+		if ts, ok := cache[bn]; ok {
+			evs[i].BlockTime = ts
+			continue
+		}
+
+		h, err := headerByNumberRetryStakingV9(ctx, client, bn)
+		if err != nil {
+			return fmt.Errorf("HeaderByNumber(%d): %w", bn, err)
+		}
+
+		cache[bn] = h.Time
+		evs[i].BlockTime = h.Time
+	}
+
+	return nil
+}
+
+func fillBlockTimesUnstaked(ctx context.Context, client *ethclient.Client, evs []UnstakedEvent) error {
+	cache := make(map[uint64]uint64, 256)
+
+	for i := range evs {
+		bn := evs[i].BlockNumber
+
+		if ts, ok := cache[bn]; ok {
+			evs[i].BlockTime = ts
+			continue
+		}
+
+		h, err := headerByNumberRetryStakingV9(ctx, client, bn)
+		if err != nil {
+			return fmt.Errorf("HeaderByNumber(%d): %w", bn, err)
+		}
+
+		cache[bn] = h.Time
+		evs[i].BlockTime = h.Time
+	}
+
+	return nil
+}
+
+func FetchStakedByRange(ctx context.Context, client *ethclient.Client, contract common.Address, fromBlock, toBlock uint64) ([]StakedEvent, error) {
+	if toBlock < fromBlock {
+		return []StakedEvent{}, nil
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(stakingV9EventsABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse abi: %w", err)
+	}
+
+	eventID := parsedABI.Events["Staked"].ID
+
+	res := make([]StakedEvent, 0, 256)
+
+	for start := fromBlock; start <= toBlock; start += QueryStep {
+		end := start + QueryStep - 1
+		if end > toBlock {
+			end = toBlock
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start),
+			ToBlock:   new(big.Int).SetUint64(end),
+			Addresses: []common.Address{contract},
+			Topics:    [][]common.Hash{{eventID}},
+		}
+
+		logs, err := filterLogsRetryStakingV9(ctx, client, q)
+		if err != nil {
+			return nil, fmt.Errorf("FilterLogs Staked [%d,%d]: %w", start, end, err)
+		}
+
+		for _, lg := range logs {
+			ev, err := parseStaked(parsedABI, lg)
+			if err != nil {
+				return nil, fmt.Errorf("parse Staked log tx=%s idx=%d: %w", lg.TxHash.Hex(), lg.Index, err)
+			}
+			res = append(res, ev)
+		}
+	}
+
+	if err := fillBlockTimesStaked(ctx, client, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func PollStakedIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []StakedEvent, newLastProcessed uint64, err error) {
+	head, err := client.BlockNumber(ctx)
+	if err != nil {
+		return nil, lastProcessedFromDB, fmt.Errorf("BlockNumber: %w", err)
+	}
+
+	if head <= Confirmations {
+		return nil, lastProcessedFromDB, nil
+	}
+
+	safeTo := head - Confirmations
+
+	from := lastProcessedFromDB + 1
+	if from < DeployBlockStakingV9 {
+		from = DeployBlockStakingV9
+	}
+
+	if safeTo < from {
+		return []StakedEvent{}, lastProcessedFromDB, nil
+	}
+
+	evs, err := FetchStakedByRange(ctx, client, StakingV9Contract, from, safeTo)
+	if err != nil {
+		return nil, lastProcessedFromDB, err
+	}
+
+	return evs, safeTo, nil
+}
+
+func FetchUnstakedByRange(ctx context.Context, client *ethclient.Client, contract common.Address, fromBlock, toBlock uint64) ([]UnstakedEvent, error) {
+	if toBlock < fromBlock {
+		return []UnstakedEvent{}, nil
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(stakingV9EventsABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse abi: %w", err)
+	}
+
+	eventID := parsedABI.Events["Unstaked"].ID
+
+	res := make([]UnstakedEvent, 0, 256)
+
+	for start := fromBlock; start <= toBlock; start += QueryStep {
+		end := start + QueryStep - 1
+		if end > toBlock {
+			end = toBlock
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start),
+			ToBlock:   new(big.Int).SetUint64(end),
+			Addresses: []common.Address{contract},
+			Topics:    [][]common.Hash{{eventID}},
+		}
+
+		logs, err := filterLogsRetryStakingV9(ctx, client, q)
+		if err != nil {
+			return nil, fmt.Errorf("FilterLogs Unstaked [%d,%d]: %w", start, end, err)
+		}
+
+		for _, lg := range logs {
+			ev, err := parseUnstaked(parsedABI, lg)
+			if err != nil {
+				return nil, fmt.Errorf("parse Unstaked log tx=%s idx=%d: %w", lg.TxHash.Hex(), lg.Index, err)
+			}
+			res = append(res, ev)
+		}
+	}
+
+	if err := fillBlockTimesUnstaked(ctx, client, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func PollUnstakedIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []UnstakedEvent, newLastProcessed uint64, err error) {
+	head, err := client.BlockNumber(ctx)
+	if err != nil {
+		return nil, lastProcessedFromDB, fmt.Errorf("BlockNumber: %w", err)
+	}
+
+	if head <= Confirmations {
+		return nil, lastProcessedFromDB, nil
+	}
+
+	safeTo := head - Confirmations
+
+	from := lastProcessedFromDB + 1
+	if from < DeployBlockStakingV9 {
+		from = DeployBlockStakingV9
+	}
+
+	if safeTo < from {
+		return []UnstakedEvent{}, lastProcessedFromDB, nil
+	}
+
+	evs, err := FetchUnstakedByRange(ctx, client, StakingV9Contract, from, safeTo)
+	if err != nil {
+		return nil, lastProcessedFromDB, err
+	}
+
+	return evs, safeTo, nil
+}
+
+const stakingQueueAddedABI = `[
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true,  "internalType": "uint256", "name": "queueIndex", "type": "uint256"},
+      {"indexed": true,  "internalType": "address", "name": "user",       "type": "address"},
+      {"indexed": false, "internalType": "uint160", "name": "amount",     "type": "uint160"},
+      {"indexed": false, "internalType": "uint8",   "name": "stakeIndex", "type": "uint8"},
+      {"indexed": false, "internalType": "uint40",  "name": "queuedAt",   "type": "uint40"}
+    ],
+    "name": "QueueAdded",
+    "type": "event"
+  }
+]`
+
+type QueueAddedEvent struct {
+	BlockNumber uint64
+	LogIndex    uint
+	BlockTime   uint64 // 秒级
+
+	// indexed
+	QueueIndex uint64
+	User       common.Address
+
+	// data
+	Amount     *big.Int
+	StakeIndex uint8
+	QueuedAt   uint64
+}
+
+func parseQueueAdded(a abi.ABI, lg types.Log) (QueueAddedEvent, error) {
+	ev, ok := a.Events["QueueAdded"]
+	if !ok {
+		return QueueAddedEvent{}, fmt.Errorf("event QueueAdded not found in ABI")
+	}
+
+	// topics: [eventId, queueIndex, user]
+	if len(lg.Topics) != 3 {
+		return QueueAddedEvent{}, fmt.Errorf("bad topics len=%d", len(lg.Topics))
+	}
+
+	if lg.Topics[0] != ev.ID {
+		return QueueAddedEvent{}, fmt.Errorf("topic0 mismatch")
+	}
+
+	queueIndexBI := new(big.Int).SetBytes(lg.Topics[1].Bytes())
+	if queueIndexBI.Sign() < 0 || queueIndexBI.BitLen() > 64 {
+		return QueueAddedEvent{}, fmt.Errorf("queueIndex out of uint64: %s", queueIndexBI.String())
+	}
+
+	out := QueueAddedEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+
+		QueueIndex: queueIndexBI.Uint64(),
+		User:       common.BytesToAddress(lg.Topics[2].Bytes()),
+	}
+
+	vals, err := ev.Inputs.NonIndexed().Unpack(lg.Data)
+	if err != nil {
+		return QueueAddedEvent{}, fmt.Errorf("unpack data: %w", err)
+	}
+
+	if len(vals) != 3 {
+		return QueueAddedEvent{}, fmt.Errorf("unexpected decoded values len=%d", len(vals))
+	}
+
+	amount, ok := vals[0].(*big.Int)
+	if !ok {
+		return QueueAddedEvent{}, fmt.Errorf("bad type amount: %T", vals[0])
+	}
+
+	var stakeIndex uint8
+	switch v := vals[1].(type) {
+	case uint8:
+		stakeIndex = v
+	case *big.Int:
+		if v.Sign() < 0 || v.BitLen() > 8 {
+			return QueueAddedEvent{}, fmt.Errorf("stakeIndex out of uint8: %s", v.String())
+		}
+		stakeIndex = uint8(v.Uint64())
+	default:
+		return QueueAddedEvent{}, fmt.Errorf("bad type stakeIndex: %T", vals[1])
+	}
+
+	queuedAtBI, ok := vals[2].(*big.Int)
+	if !ok {
+		return QueueAddedEvent{}, fmt.Errorf("bad type queuedAt: %T", vals[2])
+	}
+
+	if queuedAtBI.Sign() < 0 || queuedAtBI.BitLen() > 40 {
+		return QueueAddedEvent{}, fmt.Errorf("queuedAt out of uint40: %s", queuedAtBI.String())
+	}
+
+	out.Amount = amount
+	out.StakeIndex = stakeIndex
+	out.QueuedAt = queuedAtBI.Uint64()
+
+	return out, nil
+}
+
+func filterLogsRetryQueueAdded(ctx context.Context, client *ethclient.Client, q ethereum.FilterQuery) ([]types.Log, error) {
+	maxTry := 5
+	delay := 200 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		logs, err := client.FilterLogs(ctx, q)
+		if err == nil {
+			return logs, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+
+	return nil, lastErr
+}
+
+func headerByNumberRetryQueueAdded(ctx context.Context, client *ethclient.Client, bn uint64) (*types.Header, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		h, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(bn))
+		if err == nil {
+			return h, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+
+	return nil, lastErr
+}
+
+func fillBlockTimesQueueAdded(ctx context.Context, client *ethclient.Client, evs []QueueAddedEvent) error {
+	cache := make(map[uint64]uint64, 256)
+
+	for i := range evs {
+		bn := evs[i].BlockNumber
+
+		if ts, ok := cache[bn]; ok {
+			evs[i].BlockTime = ts
+			continue
+		}
+
+		h, err := headerByNumberRetryQueueAdded(ctx, client, bn)
+		if err != nil {
+			return fmt.Errorf("HeaderByNumber(%d): %w", bn, err)
+		}
+
+		cache[bn] = h.Time
+		evs[i].BlockTime = h.Time
+	}
+
+	return nil
+}
+
+func FetchQueueAddedByRange(ctx context.Context, client *ethclient.Client, contract common.Address, fromBlock, toBlock uint64) ([]QueueAddedEvent, error) {
+	if toBlock < fromBlock {
+		return []QueueAddedEvent{}, nil
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(stakingQueueAddedABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse abi: %w", err)
+	}
+
+	eventID := parsedABI.Events["QueueAdded"].ID
+
+	res := make([]QueueAddedEvent, 0, 256)
+
+	for start := fromBlock; start <= toBlock; start += QueryStep {
+		end := start + QueryStep - 1
+		if end > toBlock {
+			end = toBlock
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start),
+			ToBlock:   new(big.Int).SetUint64(end),
+			Addresses: []common.Address{contract},
+			Topics:    [][]common.Hash{{eventID}},
+		}
+
+		logs, err := filterLogsRetryQueueAdded(ctx, client, q)
+		if err != nil {
+			return nil, fmt.Errorf("FilterLogs QueueAdded [%d,%d]: %w", start, end, err)
+		}
+
+		for _, lg := range logs {
+			ev, err := parseQueueAdded(parsedABI, lg)
+			if err != nil {
+				return nil, fmt.Errorf("parse QueueAdded log tx=%s idx=%d: %w", lg.TxHash.Hex(), lg.Index, err)
+			}
+			res = append(res, ev)
+			fmt.Println(ev)
+		}
+	}
+
+	if err := fillBlockTimesQueueAdded(ctx, client, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func PollQueueAddedIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []QueueAddedEvent, newLastProcessed uint64, err error) {
+	head, err := client.BlockNumber(ctx)
+	if err != nil {
+		return nil, lastProcessedFromDB, fmt.Errorf("BlockNumber: %w", err)
+	}
+
+	if head <= Confirmations {
+		return nil, lastProcessedFromDB, nil
+	}
+
+	safeTo := head - Confirmations
+
+	from := lastProcessedFromDB + 1
+	if from < DeployBlockStakingV9 {
+		from = DeployBlockStakingV9
+	}
+
+	if safeTo < from {
+		return []QueueAddedEvent{}, lastProcessedFromDB, nil
+	}
+
+	evs, err := FetchQueueAddedByRange(ctx, client, StakingV9Contract, from, safeTo)
+	if err != nil {
+		return nil, lastProcessedFromDB, err
+	}
+
+	return evs, safeTo, nil
 }
