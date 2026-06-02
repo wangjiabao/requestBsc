@@ -3083,7 +3083,6 @@ func (s *TransactionService) SetUser(ctx context.Context, req *pb.GetUserREventR
 func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
 	urls := []string{
 		"https://bsc-dataseed4.binance.org/",
-		"https://binance.llamarpc.com/",
 		"https://bscrpc.com/",
 		"https://bsc-pokt.nodies.app/",
 		"https://data-seed-prebsc-1-s3.binance.org:8545/",
