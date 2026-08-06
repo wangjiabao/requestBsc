@@ -3,7 +3,19 @@ package service
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
+	"net/http"
+	"os"
+	"regexp"
+	"requestEth/internal/biz"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -13,11 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-kratos/kratos/v2/log"
-	"math/big"
-	"requestEth/internal/biz"
-	"strings"
-	"time"
 
 	pb "requestEth/api/requestEth/v1"
 )
@@ -2950,6 +2959,393 @@ func (s *TransactionService) GetBindUserEvent(ctx context.Context, req *pb.GetUs
 		time.Sleep(4 * time.Second)
 	}
 
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetUserBoundEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	urls := []string{
+		strings.TrimSpace(strings.Split(os.Getenv("REQUEST_BSC_RPC_URLS"), ",")[0]),
+	}
+	lastRPCFailed := false
+
+	for {
+		if err := ctx.Err(); nil != err {
+			return nil, err
+		}
+		if end.Before(time.Now().UTC()) {
+			break
+		}
+
+		last := DeployBlockUserV1Bound - 1
+		progress, err := s.ac.GetUserV1BoundSyncProgress(ctx)
+		if nil != err {
+			return nil, err
+		}
+
+		if nil != progress {
+			last = progress.LastProcessedBlock
+		} else {
+			rLast, errT := s.ac.GetUserV1BoundLast(ctx)
+			if nil != errT {
+				return nil, errT
+			}
+			if nil != rLast {
+				last = rLast.BlockNumber
+			}
+		}
+
+		saved := false
+		for _, url := range urls {
+			url = strings.TrimSpace(url)
+			if url == "" {
+				continue
+			}
+
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, err := ethclient.DialContext(rpcCtx, url)
+			if err != nil {
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			events, newLast, err := PollUserV1BoundIncremental(rpcCtx, client, last)
+			client.Close()
+			cancel()
+			if err != nil {
+				lastRPCFailed = true
+				continue
+			}
+
+			if last >= newLast {
+				return &pb.GetUserREventReply{}, nil
+			}
+
+			if last < DeployBlockUserV1Bound {
+				foundDeployBound := false
+				for _, v := range events {
+					if v.BlockNumber == DeployBlockUserV1Bound {
+						foundDeployBound = true
+						break
+					}
+				}
+				if !foundDeployBound {
+					return nil, fmt.Errorf("user v1 Bound deploy event is missing at block %d", DeployBlockUserV1Bound)
+				}
+			}
+
+			rangeEvents := make([]*biz.UserV1Bound, 0, len(events))
+			for _, v := range events {
+				rangeEvents = append(rangeEvents, &biz.UserV1Bound{
+					BlockNumber: v.BlockNumber,
+					UserAddr:    strings.ToLower(v.User.Hex()),
+					ParentAddr:  strings.ToLower(v.Parent.Hex()),
+				})
+			}
+
+			if err = s.ac.SaveUserV1BoundRange(ctx, rangeEvents, newLast); nil != err {
+				return nil, err
+			}
+
+			saved = true
+			lastRPCFailed = false
+			break
+		}
+
+		if !saved {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+	}
+	if lastRPCFailed {
+		fmt.Println("user Bound 本轮RPC请求未完成，下次从数据库断点继续")
+	}
+
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) RecoverUserBoundEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	events, safeHead, err := FetchUserV1BoundHistoryByReceipts(ctx)
+	if nil != err {
+		return nil, err
+	}
+
+	history, _, err := BuildUserV1BoundHistory(events)
+	if nil != err {
+		return nil, err
+	}
+
+	if err = s.ac.RebuildUserV1Bound(ctx, history, safeHead); nil != err {
+		return nil, err
+	}
+
+	fmt.Println("user bound历史恢复完成", len(history), safeHead)
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetUserStakeChangedEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	urls := performanceRPCURLs()
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+	}
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamStake)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		return nil, fmt.Errorf("StakeChanged同步进度不存在，请先执行 /api/recover_performance_event")
+	}
+	lastRPCFailed := false
+
+	for end.After(time.Now().UTC()) {
+		saved := false
+		for _, url := range urls {
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, errT := ethclient.DialContext(rpcCtx, url)
+			if nil != errT {
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			events, newLast, errT := PollUserV1StakeChangedIncremental(rpcCtx, client, progress.LastProcessedBlock)
+			client.Close()
+			cancel()
+			if nil != errT {
+				lastRPCFailed = true
+				continue
+			}
+			if newLast <= progress.LastProcessedBlock {
+				return &pb.GetUserREventReply{}, nil
+			}
+			if errT = s.ac.SaveUserV1StakeChangedRange(ctx, events, newLast); nil != errT {
+				fmt.Println("StakeChanged数据写入失败，当前分段已回滚", errT)
+				return nil, errT
+			}
+			progress.LastProcessedBlock = newLast
+			saved = true
+			lastRPCFailed = false
+			break
+		}
+		if !saved {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+	}
+	if lastRPCFailed {
+		fmt.Println("StakeChanged本轮RPC请求未完成，下次从数据库断点继续")
+	}
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetUserExtraChangedEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	urls := performanceRPCURLs()
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+	}
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamExtra)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		return nil, fmt.Errorf("ExtraChanged同步进度不存在，请先执行 /api/recover_performance_event")
+	}
+	lastRPCFailed := false
+
+	for end.After(time.Now().UTC()) {
+		saved := false
+		for _, url := range urls {
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, errT := ethclient.DialContext(rpcCtx, url)
+			if nil != errT {
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			events, newLast, errT := PollUserV1ExtraChangedIncremental(rpcCtx, client, progress.LastProcessedBlock)
+			client.Close()
+			cancel()
+			if nil != errT {
+				lastRPCFailed = true
+				continue
+			}
+			if newLast <= progress.LastProcessedBlock {
+				return &pb.GetUserREventReply{}, nil
+			}
+			if errT = s.ac.SaveUserV1ExtraChangedRange(ctx, events, newLast); nil != errT {
+				fmt.Println("ExtraChanged数据写入失败，当前分段已回滚", errT)
+				return nil, errT
+			}
+			progress.LastProcessedBlock = newLast
+			saved = true
+			lastRPCFailed = false
+			break
+		}
+		if !saved {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+	}
+	if lastRPCFailed {
+		fmt.Println("ExtraChanged本轮RPC请求未完成，下次从数据库断点继续")
+	}
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetStakingRewardEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	urls := performanceRPCURLs()
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+	}
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamReward)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		return nil, fmt.Errorf("staking奖励同步进度不存在，请先执行 /api/recover_performance_event")
+	}
+	lastRPCFailed := false
+
+	for end.After(time.Now().UTC()) {
+		saved := false
+		for _, url := range urls {
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, errT := ethclient.DialContext(rpcCtx, url)
+			if nil != errT {
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			events, newLast, errT := PollStakingV1RewardIncremental(rpcCtx, client, progress.LastProcessedBlock)
+			client.Close()
+			cancel()
+			if nil != errT {
+				lastRPCFailed = true
+				continue
+			}
+			if newLast <= progress.LastProcessedBlock {
+				return &pb.GetUserREventReply{}, nil
+			}
+
+			levelUsers, errT := s.ac.GetStakingV1LineRewardUsers(ctx, events)
+			if nil != errT {
+				fmt.Println("staking奖励数据校验失败，本轮未写入", errT)
+				return nil, errT
+			}
+			// 日常增量可能正在追赶较早的日志，而普通全节点会裁剪旧区块状态。
+			// levelRewardUSDT 是绝对值，按需求直接读取此刻最新值即可。
+			levelRewards, errT := FetchStakingV1LevelRewards(ctx, url, levelUsers, 0)
+			if nil != errT {
+				lastRPCFailed = true
+				continue
+			}
+			if errT = s.ac.SaveStakingV1RewardRange(ctx, events, levelRewards, newLast); nil != errT {
+				fmt.Println("staking奖励数据写入失败，当前分段已回滚", errT)
+				return nil, errT
+			}
+			progress.LastProcessedBlock = newLast
+			saved = true
+			lastRPCFailed = false
+			break
+		}
+		if !saved {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+	}
+	if lastRPCFailed {
+		fmt.Println("staking奖励本轮RPC请求未完成，下次从数据库断点继续")
+	}
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) RecoverPerformanceEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamRecovery)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		if err = s.ac.InitializeUserV1PerformanceRecovery(ctx, DeployBlockUserV1Bound-1); nil != err {
+			return nil, err
+		}
+		progress = &biz.UserV1PerformanceSyncProgress{LastProcessedBlock: DeployBlockUserV1Bound - 1}
+	}
+
+	safeHead, err := FetchPerformanceRecoverySafeHead(ctx)
+	if nil != err {
+		return nil, err
+	}
+	for progress.LastProcessedBlock < safeHead {
+		if err = ctx.Err(); nil != err {
+			return nil, err
+		}
+		from := progress.LastProcessedBlock + 1
+		to := from + PerformanceRecoveryStep - 1
+		if to > safeHead {
+			to = safeHead
+		}
+
+		logs, errT := FetchPerformanceHistoryLogs(ctx, from, to)
+		if nil != errT {
+			return nil, errT
+		}
+		stakes, extras, rewards, errT := ParseUserV1PerformanceLogs(logs)
+		if nil != errT {
+			return nil, errT
+		}
+		if errT = s.ac.SaveUserV1PerformanceRecoveryRange(ctx, stakes, extras, rewards, to); nil != errT {
+			return nil, errT
+		}
+		progress.LastProcessedBlock = to
+		fmt.Println("业绩历史恢复进度", to, safeHead, "StakeChanged", len(stakes), "ExtraChanged", len(extras), "staking奖励", len(rewards))
+	}
+
+	users, err := s.ac.GetUserV1Bounds(ctx)
+	if nil != err {
+		return nil, err
+	}
+	urls := performanceRPCURLs()
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置，无法读取 levelRewardUSDT")
+	}
+	var levelRewards map[uint64]string
+	levelRewardsFetched := false
+	for _, url := range urls {
+		levelRewards, err = FetchStakingV1LevelRewards(ctx, url, users, safeHead)
+		if nil == err {
+			levelRewardsFetched = true
+			break
+		}
+	}
+	if !levelRewardsFetched {
+		if nil == err {
+			err = fmt.Errorf("levelRewardUSDT 读取失败")
+		}
+		return nil, err
+	}
+	if err = s.ac.CompleteUserV1PerformanceRecovery(ctx, levelRewards, safeHead); nil != err {
+		return nil, err
+	}
+
+	fmt.Println("业绩历史恢复完成", safeHead, "用户", len(users))
 	return &pb.GetUserREventReply{}, nil
 }
 
@@ -5892,6 +6288,1056 @@ func PollBindReferralIncremental(ctx context.Context, client *ethclient.Client, 
 	}
 
 	return evs, safeTo, nil
+}
+
+/* =========================
+   UserV1 Bound 用户绑定事件
+   ========================= */
+
+const (
+	DeployBlockUserV1Bound uint64 = 99847432
+)
+
+var UserV1BoundContract = common.HexToAddress("0x7926fb18Bc88B5567d61c41Fd11497D3D16bce36")
+var UserV1BoundRoot = common.HexToAddress("0xc8f4285735d2cd11f59f295a594e0c9c69fa7d4e")
+
+const userV1BoundABI = `[
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "user", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "parent", "type": "address"}
+    ],
+    "name": "Bound",
+    "type": "event"
+  }
+]`
+
+type UserV1BoundEvent struct {
+	BlockNumber uint64
+	LogIndex    uint
+
+	// indexed
+	User   common.Address
+	Parent common.Address
+}
+
+func parseUserV1Bound(a abi.ABI, lg types.Log) (UserV1BoundEvent, error) {
+	ev, ok := a.Events["Bound"]
+	if !ok {
+		return UserV1BoundEvent{}, fmt.Errorf("event Bound not found in ABI")
+	}
+
+	// topics: [eventId, user, parent]
+	if len(lg.Topics) != 3 {
+		return UserV1BoundEvent{}, fmt.Errorf("bad topics len=%d", len(lg.Topics))
+	}
+
+	if lg.Topics[0] != ev.ID {
+		return UserV1BoundEvent{}, fmt.Errorf("topic0 mismatch")
+	}
+
+	out := UserV1BoundEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+
+		User:   common.BytesToAddress(lg.Topics[1].Bytes()),
+		Parent: common.BytesToAddress(lg.Topics[2].Bytes()),
+	}
+
+	// Bound 没有非 indexed 参数，data 正常应该为空
+	if len(lg.Data) != 0 {
+		return UserV1BoundEvent{}, fmt.Errorf("Bound data should be empty, got len=%d", len(lg.Data))
+	}
+
+	return out, nil
+}
+
+// ✅ 简单重试：最多 5 次
+func filterLogsRetryUserV1Bound(ctx context.Context, client *ethclient.Client, q ethereum.FilterQuery) ([]types.Log, error) {
+	maxTry := 5
+	delay := 400 * time.Millisecond
+
+	var lastErr error
+	for i := 0; i < maxTry; i++ {
+		logs, err := client.FilterLogs(ctx, q)
+		if err == nil {
+			return logs, nil
+		}
+		lastErr = err
+		if i != maxTry-1 {
+			time.Sleep(delay)
+		}
+	}
+	return nil, lastErr
+}
+
+// FetchUserV1BoundByRange 按 [fromBlock, toBlock] 拉取 Bound
+func FetchUserV1BoundByRange(ctx context.Context, client *ethclient.Client, contract common.Address, fromBlock, toBlock uint64) ([]UserV1BoundEvent, error) {
+	if toBlock < fromBlock {
+		return []UserV1BoundEvent{}, nil
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(userV1BoundABI))
+	if err != nil {
+		return nil, fmt.Errorf("parse abi: %w", err)
+	}
+
+	boundID := parsedABI.Events["Bound"].ID
+
+	res := make([]UserV1BoundEvent, 0, 256)
+
+	for start := fromBlock; start <= toBlock; start += QueryStep {
+		end := start + QueryStep - 1
+		if end > toBlock {
+			end = toBlock
+		}
+
+		q := ethereum.FilterQuery{
+			FromBlock: new(big.Int).SetUint64(start),
+			ToBlock:   new(big.Int).SetUint64(end),
+			Addresses: []common.Address{contract},
+			Topics:    [][]common.Hash{{boundID}},
+		}
+
+		logs, err := filterLogsRetryUserV1Bound(ctx, client, q)
+		if err != nil {
+			return nil, fmt.Errorf("FilterLogs [%d,%d]: %w", start, end, err)
+		}
+
+		for _, lg := range logs {
+			ev, err := parseUserV1Bound(parsedABI, lg)
+			if err != nil {
+				return nil, fmt.Errorf("parse log tx=%s idx=%d: %w", lg.TxHash.Hex(), lg.Index, err)
+			}
+			res = append(res, ev)
+		}
+	}
+
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].BlockNumber == res[j].BlockNumber {
+			return res[i].LogIndex < res[j].LogIndex
+		}
+		return res[i].BlockNumber < res[j].BlockNumber
+	})
+
+	return res, nil
+}
+
+// PollUserV1BoundIncremental：增量拉取 + latest-Confirmations
+func PollUserV1BoundIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []UserV1BoundEvent, newLastProcessed uint64, err error) {
+	head, err := client.BlockNumber(ctx)
+	if err != nil {
+		return nil, lastProcessedFromDB, fmt.Errorf("BlockNumber: %w", err)
+	}
+
+	if head <= Confirmations {
+		return nil, lastProcessedFromDB, nil
+	}
+
+	safeTo := head - Confirmations
+
+	from := lastProcessedFromDB + 1
+	if from < DeployBlockUserV1Bound {
+		from = DeployBlockUserV1Bound
+	}
+
+	if safeTo < from {
+		return []UserV1BoundEvent{}, lastProcessedFromDB, nil
+	}
+
+	to := from + QueryStep - 1
+	if to > safeTo {
+		to = safeTo
+	}
+
+	evs, err := FetchUserV1BoundByRange(ctx, client, UserV1BoundContract, from, to)
+	if err != nil {
+		return nil, lastProcessedFromDB, err
+	}
+
+	return evs, to, nil
+}
+
+const (
+	userV1BoundRecoveryPageSize     = 100
+	userV1BoundRecoveryMaxPages     = 100
+	userV1BoundRecoveryBatchSize    = 100
+	userV1BoundRecoveryHeadTimeout  = 10 * time.Second
+	userV1BoundRecoveryRPCTimeout   = 50 * time.Second
+	userV1BoundRecoveryBatchTimeout = 15 * time.Second
+)
+
+var userV1BoundQuickExportRegexp = regexp.MustCompile(`(?s)quickExportTransactionListData\s*=\s*'(.*?)';`)
+var userV1BoundTotalRegexp = regexp.MustCompile(`(?i)A total of ([0-9,]+) transactions found`)
+var userV1BoundTransactionHashRegexp = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
+
+type bscScanUserV1BoundTransaction struct {
+	TxHash string `json:"Txhash"`
+}
+
+func fetchBscScanUserV1BoundPage(ctx context.Context, page int) ([]bscScanUserV1BoundTransaction, int, error) {
+	pageURL := fmt.Sprintf("https://bscscan.com/txs?a=%s&ps=%d&p=%d", UserV1BoundContract.Hex(), userV1BoundRecoveryPageSize, page)
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+
+	var lastErr error
+	for i := 0; i < 5; i++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+		if nil != err {
+			return nil, 0, err
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+
+		resp, err := httpClient.Do(req)
+		if nil != err {
+			lastErr = err
+		} else {
+			body, readErr := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+			resp.Body.Close()
+			if nil != readErr {
+				lastErr = readErr
+			} else if resp.StatusCode != http.StatusOK {
+				lastErr = fmt.Errorf("bscscan page %d http status %d", page, resp.StatusCode)
+			} else {
+				match := userV1BoundQuickExportRegexp.FindSubmatch(body)
+				if len(match) != 2 {
+					lastErr = fmt.Errorf("bscscan page %d transaction data not found", page)
+				} else {
+					var rows []bscScanUserV1BoundTransaction
+					if err = json.Unmarshal(match[1], &rows); nil != err {
+						lastErr = fmt.Errorf("parse bscscan page %d: %w", page, err)
+					} else {
+						total := 0
+						if page == 1 {
+							totalMatch := userV1BoundTotalRegexp.FindSubmatch(body)
+							if len(totalMatch) != 2 {
+								lastErr = fmt.Errorf("bscscan total transaction count not found")
+							} else {
+								totalText := strings.ReplaceAll(string(totalMatch[1]), ",", "")
+								total, err = strconv.Atoi(totalText)
+								if nil != err || total <= 0 {
+									lastErr = fmt.Errorf("bad bscscan total transaction count %q", totalText)
+								} else {
+									return rows, total, nil
+								}
+							}
+						} else {
+							return rows, 0, nil
+						}
+					}
+				}
+			}
+		}
+
+		if i != 4 {
+			select {
+			case <-ctx.Done():
+				return nil, 0, ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+	}
+
+	return nil, 0, lastErr
+}
+
+func FetchBscScanUserV1BoundTransactionHashes(ctx context.Context) ([]common.Hash, error) {
+	firstPage, total, err := fetchBscScanUserV1BoundPage(ctx, 1)
+	if nil != err {
+		return nil, err
+	}
+
+	pageTotal := (total + userV1BoundRecoveryPageSize - 1) / userV1BoundRecoveryPageSize
+	if pageTotal <= 0 || pageTotal > userV1BoundRecoveryMaxPages {
+		return nil, fmt.Errorf("bad bscscan page count %d", pageTotal)
+	}
+
+	rows := make([]bscScanUserV1BoundTransaction, 0, total)
+	rows = append(rows, firstPage...)
+	for page := 2; page <= pageTotal; page++ {
+		pageRows, _, errT := fetchBscScanUserV1BoundPage(ctx, page)
+		if nil != errT {
+			return nil, errT
+		}
+		rows = append(rows, pageRows...)
+	}
+
+	seen := make(map[common.Hash]struct{}, total)
+	hashes := make([]common.Hash, 0, total)
+	for _, row := range rows {
+		if !userV1BoundTransactionHashRegexp.MatchString(row.TxHash) {
+			return nil, fmt.Errorf("bad bscscan transaction hash %q", row.TxHash)
+		}
+		hash := common.HexToHash(row.TxHash)
+		if _, ok := seen[hash]; ok {
+			continue
+		}
+		seen[hash] = struct{}{}
+		hashes = append(hashes, hash)
+	}
+
+	if len(hashes) != total {
+		return nil, fmt.Errorf("bscscan transaction count mismatch: expected=%d actual=%d", total, len(hashes))
+	}
+
+	return hashes, nil
+}
+
+func userV1BoundRecoveryRPCURLs() []string {
+	urls := make([]string, 0, 4)
+	seen := make(map[string]struct{})
+	appendURL := func(url string) {
+		url = strings.TrimSpace(url)
+		if url == "" {
+			return
+		}
+		if _, ok := seen[url]; ok {
+			return
+		}
+		seen[url] = struct{}{}
+		urls = append(urls, url)
+	}
+
+	for _, url := range strings.Split(os.Getenv("REQUEST_BSC_USER_BOUND_RECOVERY_RPC_URLS"), ",") {
+		appendURL(url)
+	}
+	appendURL("https://bsc-dataseed4.binance.org/")
+	appendURL("https://bsc-mainnet.public.blastapi.io")
+
+	return urls
+}
+
+func fetchUserV1BoundRecoverySafeHead(ctx context.Context, url string) (uint64, error) {
+	rpcClient, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return 0, err
+	}
+	defer rpcClient.Close()
+
+	var head hexutil.Uint64
+	if err = rpcClient.CallContext(ctx, &head, "eth_blockNumber"); nil != err {
+		return 0, err
+	}
+	if uint64(head) <= Confirmations {
+		return 0, fmt.Errorf("bad recovery rpc head %d", head)
+	}
+	return uint64(head) - Confirmations, nil
+}
+
+func FetchUserV1BoundRecoverySafeHead(ctx context.Context) (uint64, error) {
+	var lastErr error
+	for _, url := range userV1BoundRecoveryRPCURLs() {
+		rpcCtx, cancel := context.WithTimeout(ctx, userV1BoundRecoveryHeadTimeout)
+		safeHead, err := fetchUserV1BoundRecoverySafeHead(rpcCtx, url)
+		cancel()
+		if nil == err {
+			return safeHead, nil
+		}
+		lastErr = err
+	}
+
+	if nil == lastErr {
+		lastErr = fmt.Errorf("no recovery rpc configured")
+	}
+	return 0, lastErr
+}
+
+func fetchUserV1BoundReceiptsFromRPC(ctx context.Context, url string, hashes []common.Hash) ([]*types.Receipt, error) {
+	rpcClient, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer rpcClient.Close()
+
+	receipts := make([]*types.Receipt, 0, len(hashes))
+	for start := 0; start < len(hashes); start += userV1BoundRecoveryBatchSize {
+		end := start + userV1BoundRecoveryBatchSize
+		if end > len(hashes) {
+			end = len(hashes)
+		}
+
+		var batchReceipts []*types.Receipt
+		var batchErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			batchReceipts = make([]*types.Receipt, end-start)
+			batch := make([]rpc.BatchElem, end-start)
+			for i := range batch {
+				batch[i] = rpc.BatchElem{
+					Method: "eth_getTransactionReceipt",
+					Args:   []interface{}{hashes[start+i]},
+					Result: &batchReceipts[i],
+				}
+			}
+
+			batchCtx, cancel := context.WithTimeout(ctx, userV1BoundRecoveryBatchTimeout)
+			batchErr = rpcClient.BatchCallContext(batchCtx, batch)
+			cancel()
+			if nil == batchErr {
+				for i := range batch {
+					if nil != batch[i].Error {
+						batchErr = batch[i].Error
+						break
+					}
+					if nil == batchReceipts[i] {
+						batchErr = fmt.Errorf("receipt not found for %s", hashes[start+i].Hex())
+						break
+					}
+				}
+			}
+
+			if nil == batchErr {
+				break
+			}
+			if attempt != 2 {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Second):
+				}
+			}
+		}
+		if nil != batchErr {
+			return nil, batchErr
+		}
+
+		receipts = append(receipts, batchReceipts...)
+		if end < len(hashes) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+	}
+
+	return receipts, nil
+}
+
+func FetchUserV1BoundHistoryByReceipts(ctx context.Context) ([]UserV1BoundEvent, uint64, error) {
+	safeHead, err := FetchUserV1BoundRecoverySafeHead(ctx)
+	if nil != err {
+		return nil, 0, err
+	}
+
+	hashes, err := FetchBscScanUserV1BoundTransactionHashes(ctx)
+	if nil != err {
+		return nil, 0, err
+	}
+
+	parsedABI, err := abi.JSON(strings.NewReader(userV1BoundABI))
+	if nil != err {
+		return nil, 0, err
+	}
+	boundID := parsedABI.Events["Bound"].ID
+
+	var lastErr error
+	for _, url := range userV1BoundRecoveryRPCURLs() {
+		rpcCtx, cancel := context.WithTimeout(ctx, userV1BoundRecoveryRPCTimeout)
+		receipts, errT := fetchUserV1BoundReceiptsFromRPC(rpcCtx, url, hashes)
+		cancel()
+		if nil != errT {
+			lastErr = errT
+			continue
+		}
+
+		events := make([]UserV1BoundEvent, 0, len(receipts))
+		for _, receipt := range receipts {
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				continue
+			}
+			for _, lg := range receipt.Logs {
+				if lg.Address != UserV1BoundContract || len(lg.Topics) == 0 || lg.Topics[0] != boundID {
+					continue
+				}
+				if lg.BlockNumber > safeHead {
+					continue
+				}
+				event, parseErr := parseUserV1Bound(parsedABI, *lg)
+				if nil != parseErr {
+					return nil, 0, parseErr
+				}
+				events = append(events, event)
+			}
+		}
+
+		if len(events) == 0 {
+			lastErr = fmt.Errorf("no user Bound event found in %d receipts", len(receipts))
+			continue
+		}
+		return events, safeHead, nil
+	}
+
+	if nil == lastErr {
+		lastErr = fmt.Errorf("no recovery rpc configured")
+	}
+	return nil, 0, lastErr
+}
+
+func BuildUserV1BoundHistory(events []UserV1BoundEvent) ([]*biz.UserV1Bound, uint64, error) {
+	if len(events) == 0 {
+		return nil, 0, fmt.Errorf("user Bound history is empty")
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].BlockNumber == events[j].BlockNumber {
+			return events[i].LogIndex < events[j].LogIndex
+		}
+		return events[i].BlockNumber < events[j].BlockNumber
+	})
+
+	history := make([]*biz.UserV1Bound, 0, len(events))
+	byUser := make(map[string]*biz.UserV1Bound, len(events))
+	for i, event := range events {
+		userAddr := strings.ToLower(event.User.Hex())
+		parentAddr := strings.ToLower(event.Parent.Hex())
+		if event.User == (common.Address{}) {
+			return nil, 0, fmt.Errorf("zero user address at block %d log %d", event.BlockNumber, event.LogIndex)
+		}
+		if _, ok := byUser[userAddr]; ok {
+			return nil, 0, fmt.Errorf("duplicate user %s", userAddr)
+		}
+
+		row := &biz.UserV1Bound{
+			ID:          uint64(i + 1),
+			BlockNumber: event.BlockNumber,
+			UserAddr:    userAddr,
+			ParentAddr:  parentAddr,
+		}
+		if event.Parent == (common.Address{}) {
+			if i != 0 || event.User != UserV1BoundRoot || event.BlockNumber != DeployBlockUserV1Bound {
+				return nil, 0, fmt.Errorf("bad root Bound event user=%s block=%d", userAddr, event.BlockNumber)
+			}
+			row.RecommendCode = ""
+		} else {
+			parent, ok := byUser[parentAddr]
+			if !ok {
+				return nil, 0, fmt.Errorf("user %s parent %s is missing or not earlier", userAddr, parentAddr)
+			}
+			if parent.ID >= row.ID {
+				return nil, 0, fmt.Errorf("user %s id %d is not after parent id %d", userAddr, row.ID, parent.ID)
+			}
+			row.RecommendCode = parent.RecommendCode + "D" + strconv.FormatUint(parent.ID, 10)
+		}
+
+		history = append(history, row)
+		byUser[userAddr] = row
+	}
+
+	if err := ValidateUserV1BoundHistory(history); nil != err {
+		return nil, 0, err
+	}
+
+	return history, history[len(history)-1].BlockNumber, nil
+}
+
+func ValidateUserV1BoundHistory(history []*biz.UserV1Bound) error {
+	if len(history) == 0 {
+		return fmt.Errorf("user Bound history is empty")
+	}
+
+	zeroAddress := strings.ToLower((common.Address{}).Hex())
+	rootAddress := strings.ToLower(UserV1BoundRoot.Hex())
+	byUser := make(map[string]*biz.UserV1Bound, len(history))
+	rootCount := 0
+	for i, row := range history {
+		if row.ID != uint64(i+1) {
+			return fmt.Errorf("user %s has non-sequential id %d at position %d", row.UserAddr, row.ID, i+1)
+		}
+
+		userAddr := strings.ToLower(row.UserAddr)
+		parentAddr := strings.ToLower(row.ParentAddr)
+		if _, ok := byUser[userAddr]; ok {
+			return fmt.Errorf("duplicate user %s", userAddr)
+		}
+
+		if parentAddr == zeroAddress {
+			rootCount++
+			if row.ID != 1 || userAddr != rootAddress || row.RecommendCode != "" {
+				return fmt.Errorf("invalid root row id=%d user=%s code=%s", row.ID, userAddr, row.RecommendCode)
+			}
+		} else {
+			parent, ok := byUser[parentAddr]
+			if !ok {
+				return fmt.Errorf("user %s parent %s is missing", userAddr, parentAddr)
+			}
+			if parent.ID >= row.ID {
+				return fmt.Errorf("user %s id %d is not after parent id %d", userAddr, row.ID, parent.ID)
+			}
+			expectedCode := parent.RecommendCode + "D" + strconv.FormatUint(parent.ID, 10)
+			if row.RecommendCode != expectedCode {
+				return fmt.Errorf("user %s recommend code mismatch: expected=%s actual=%s", userAddr, expectedCode, row.RecommendCode)
+			}
+		}
+
+		byUser[userAddr] = row
+	}
+
+	if rootCount != 1 {
+		return fmt.Errorf("root row count must be 1, got %d", rootCount)
+	}
+
+	return nil
+}
+
+/* =========================
+   UserV1 / StakingV1 业绩与奖励事件
+   ========================= */
+
+const (
+	DeployBlockStakingV1    uint64 = 99857140
+	PerformanceRecoveryStep uint64 = 50000
+)
+
+var StakingV1Contract = common.HexToAddress("0x547c95E04b4b8e6D6956acF4d0B22E8a81F79722")
+
+var (
+	userV1StakeChangedTopic   = common.HexToHash("0x5c2b1af9817829e3745bfe7eb801e744beec39c89a0215f43f7304b3276f6120")
+	userV1ExtraChangedTopic   = common.HexToHash("0xa1416bb110754a8cd5905ddb97926b43030460b0be1d031aba6830300d145a65")
+	stakingV1TeamBookedTopic  = common.HexToHash("0x01dff65ae78c0348becfc40252f464a2b20d1f8dc39f0e9bf3ac159be0530271")
+	stakingV1TeamClaimedTopic = common.HexToHash("0x14ec2ddfba4ceb55e4e9ddd496f4328d615049242a5d308552b14af02df83cfc")
+	stakingV1TeamExpiredTopic = common.HexToHash("0x7511616f0998e2297cc1254ccaf6ec14b6223f54f36ec224cb7c2a6516ada922")
+	stakingV1LineClaimedTopic = common.HexToHash("0x9b323bf7a7ff7d9a2f07b56ab4f293d9a140b8e6dd6d39dbdc34788ff4e4ceaf")
+)
+
+func performanceRPCURLs() []string {
+	urls := make([]string, 0, 4)
+	seen := make(map[string]struct{})
+	for _, url := range strings.Split(os.Getenv("REQUEST_BSC_RPC_URLS"), ",") {
+		url = strings.TrimSpace(url)
+		if "" == url {
+			continue
+		}
+		if _, ok := seen[url]; ok {
+			continue
+		}
+		seen[url] = struct{}{}
+		urls = append(urls, url)
+	}
+	return urls
+}
+
+func performanceRecoveryRPCURLs() []string {
+	urls := make([]string, 0, 6)
+	seen := make(map[string]struct{})
+	appendURL := func(url string) {
+		url = strings.TrimSpace(url)
+		if "" == url {
+			return
+		}
+		if _, ok := seen[url]; ok {
+			return
+		}
+		seen[url] = struct{}{}
+		urls = append(urls, url)
+	}
+	for _, url := range strings.Split(os.Getenv("REQUEST_BSC_PERFORMANCE_RECOVERY_RPC_URLS"), ",") {
+		appendURL(url)
+	}
+	appendURL("https://bsc-dataseed4.binance.org/")
+	appendURL("https://bsc-dataseed1.binance.org/")
+	appendURL("https://bsc-dataseed2.binance.org/")
+	appendURL("https://bsc-dataseed3.binance.org/")
+	return urls
+}
+
+func performanceEventKey(lg types.Log) string {
+	return strings.ToLower(lg.TxHash.Hex()) + ":" + strconv.FormatUint(uint64(lg.Index), 10)
+}
+
+var performanceAmountScale = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+
+func formatPerformanceAmount(value *big.Int) (string, error) {
+	if nil == value {
+		return "", fmt.Errorf("amount is nil")
+	}
+	if value.Sign() < 0 {
+		return "", fmt.Errorf("amount is negative: %s", value.String())
+	}
+	integer := new(big.Int)
+	fraction := new(big.Int)
+	integer.QuoRem(value, performanceAmountScale, fraction)
+	fractionText := fraction.String()
+	return integer.String() + "." + strings.Repeat("0", 18-len(fractionText)) + fractionText, nil
+}
+
+func filterPerformanceLogs(ctx context.Context, client *ethclient.Client, addresses []common.Address, topics []common.Hash, fromBlock, toBlock uint64) ([]types.Log, error) {
+	if toBlock < fromBlock {
+		return []types.Log{}, nil
+	}
+	query := ethereum.FilterQuery{
+		FromBlock: new(big.Int).SetUint64(fromBlock),
+		ToBlock:   new(big.Int).SetUint64(toBlock),
+		Addresses: addresses,
+		Topics:    [][]common.Hash{topics},
+	}
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		logs, err := client.FilterLogs(ctx, query)
+		if nil == err {
+			sort.Slice(logs, func(i, j int) bool {
+				if logs[i].BlockNumber == logs[j].BlockNumber {
+					return logs[i].Index < logs[j].Index
+				}
+				return logs[i].BlockNumber < logs[j].BlockNumber
+			})
+			return logs, nil
+		}
+		lastErr = err
+		if attempt != 2 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+	}
+	return nil, lastErr
+}
+
+func performanceIncrementalRange(ctx context.Context, client *ethclient.Client, lastProcessed uint64, deployBlock uint64) (uint64, uint64, error) {
+	head, err := client.BlockNumber(ctx)
+	if nil != err {
+		return 0, lastProcessed, err
+	}
+	if head <= Confirmations {
+		return 0, lastProcessed, nil
+	}
+	safeTo := head - Confirmations
+	from := lastProcessed + 1
+	if from < deployBlock {
+		from = deployBlock
+	}
+	if safeTo < from {
+		return from, lastProcessed, nil
+	}
+	to := from + QueryStep - 1
+	if to > safeTo {
+		to = safeTo
+	}
+	return from, to, nil
+}
+
+func PollUserV1StakeChangedIncremental(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]*biz.UserV1StakeChanged, uint64, error) {
+	from, to, err := performanceIncrementalRange(ctx, client, lastProcessed, DeployBlockStakingV1)
+	if nil != err || to <= lastProcessed {
+		return []*biz.UserV1StakeChanged{}, to, err
+	}
+	logs, err := filterPerformanceLogs(ctx, client, []common.Address{UserV1BoundContract}, []common.Hash{userV1StakeChangedTopic}, from, to)
+	if nil != err {
+		return nil, lastProcessed, err
+	}
+	stakes, _, _, err := ParseUserV1PerformanceLogs(logs)
+	return stakes, to, err
+}
+
+func PollUserV1ExtraChangedIncremental(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]*biz.UserV1ExtraChanged, uint64, error) {
+	from, to, err := performanceIncrementalRange(ctx, client, lastProcessed, DeployBlockUserV1Bound)
+	if nil != err || to <= lastProcessed {
+		return []*biz.UserV1ExtraChanged{}, to, err
+	}
+	logs, err := filterPerformanceLogs(ctx, client, []common.Address{UserV1BoundContract}, []common.Hash{userV1ExtraChangedTopic}, from, to)
+	if nil != err {
+		return nil, lastProcessed, err
+	}
+	_, extras, _, err := ParseUserV1PerformanceLogs(logs)
+	return extras, to, err
+}
+
+func PollStakingV1RewardIncremental(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]*biz.StakingV1Reward, uint64, error) {
+	from, to, err := performanceIncrementalRange(ctx, client, lastProcessed, DeployBlockStakingV1)
+	if nil != err || to <= lastProcessed {
+		return []*biz.StakingV1Reward{}, to, err
+	}
+	logs, err := filterPerformanceLogs(ctx, client, []common.Address{StakingV1Contract}, []common.Hash{
+		stakingV1TeamBookedTopic, stakingV1TeamClaimedTopic, stakingV1TeamExpiredTopic, stakingV1LineClaimedTopic,
+	}, from, to)
+	if nil != err {
+		return nil, lastProcessed, err
+	}
+	_, _, rewards, err := ParseUserV1PerformanceLogs(logs)
+	return rewards, to, err
+}
+
+func ParseUserV1PerformanceLogs(logs []types.Log) ([]*biz.UserV1StakeChanged, []*biz.UserV1ExtraChanged, []*biz.StakingV1Reward, error) {
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+	userParser, err := NewUserFilterer(UserV1BoundContract, nil)
+	if nil != err {
+		return nil, nil, nil, err
+	}
+	stakingParser, err := NewStakingNewFilterer(StakingV1Contract, nil)
+	if nil != err {
+		return nil, nil, nil, err
+	}
+
+	stakes := make([]*biz.UserV1StakeChanged, 0)
+	extras := make([]*biz.UserV1ExtraChanged, 0)
+	rewards := make([]*biz.StakingV1Reward, 0)
+	for _, lg := range logs {
+		if 0 == len(lg.Topics) {
+			return nil, nil, nil, fmt.Errorf("performance log has no topics at block %d", lg.BlockNumber)
+		}
+		eventKey := performanceEventKey(lg)
+		txHash := strings.ToLower(lg.TxHash.Hex())
+		switch {
+		case lg.Address == UserV1BoundContract && lg.Topics[0] == userV1StakeChangedTopic:
+			event, errT := userParser.ParseStakeChanged(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			amount, errT := formatPerformanceAmount(event.Amount)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			stakes = append(stakes, &biz.UserV1StakeChanged{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash,
+				UserAddr: strings.ToLower(event.User.Hex()), Amount: amount, IsAdd: event.Add,
+			})
+
+		case lg.Address == UserV1BoundContract && lg.Topics[0] == userV1ExtraChangedTopic:
+			event, errT := userParser.ParseExtraChanged(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			amount, errT := formatPerformanceAmount(event.ExtraPerf)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			extras = append(extras, &biz.UserV1ExtraChanged{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash,
+				UserAddr: strings.ToLower(event.Account.Hex()), ExtraAmount: amount,
+			})
+
+		case lg.Address == StakingV1Contract && lg.Topics[0] == stakingV1TeamBookedTopic:
+			event, errT := stakingParser.ParseTeamBooked(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			feeRaw := new(big.Int).Sub(new(big.Int).Set(event.Amount), event.Stored)
+			feeRaw.Sub(feeRaw, event.DirectPaid)
+			if feeRaw.Sign() < 0 {
+				return nil, nil, nil, fmt.Errorf("TeamBooked negative fee at %s", eventKey)
+			}
+			amount, _ := formatPerformanceAmount(event.Amount)
+			stored, _ := formatPerformanceAmount(event.Stored)
+			pay, _ := formatPerformanceAmount(event.DirectPaid)
+			fee, _ := formatPerformanceAmount(feeRaw)
+			rewards = append(rewards, &biz.StakingV1Reward{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash, EventType: biz.StakingV1RewardTeamBooked,
+				FromAddr: strings.ToLower(event.From.Hex()), ToAddr: strings.ToLower(event.To.Hex()),
+				Amount: amount, StoreAmount: stored, Pay: pay, Fee: fee,
+			})
+
+		case lg.Address == StakingV1Contract && lg.Topics[0] == stakingV1TeamClaimedTopic:
+			event, errT := stakingParser.ParseTeamClaimed(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			if new(big.Int).Add(new(big.Int).Set(event.Fee), event.Net).Cmp(event.Gross) != 0 {
+				return nil, nil, nil, fmt.Errorf("TeamClaimed gross != fee + net at %s", eventKey)
+			}
+			amount, _ := formatPerformanceAmount(event.Gross)
+			fee, _ := formatPerformanceAmount(event.Fee)
+			net, _ := formatPerformanceAmount(event.Net)
+			rewards = append(rewards, &biz.StakingV1Reward{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash, EventType: biz.StakingV1RewardTeamClaimed,
+				UserAddr: strings.ToLower(event.User.Hex()), Amount: amount, Fee: fee, Net: net,
+			})
+
+		case lg.Address == StakingV1Contract && lg.Topics[0] == stakingV1TeamExpiredTopic:
+			event, errT := stakingParser.ParseTeamExpired(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			amount, errT := formatPerformanceAmount(event.Amount)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			rewards = append(rewards, &biz.StakingV1Reward{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash, EventType: biz.StakingV1RewardTeamExpired,
+				FromAddr: strings.ToLower(event.From.Hex()), ToAddr: strings.ToLower(event.To.Hex()), Amount: amount,
+			})
+
+		case lg.Address == StakingV1Contract && lg.Topics[0] == stakingV1LineClaimedTopic:
+			event, errT := stakingParser.ParseLineClaimed(lg)
+			if nil != errT {
+				return nil, nil, nil, errT
+			}
+			if event.FeeU.Cmp(event.GrossU) > 0 {
+				return nil, nil, nil, fmt.Errorf("LineClaimed fee > gross at %s", eventKey)
+			}
+			if !event.PaidMs && 0 != event.MsAmount.Sign() {
+				return nil, nil, nil, fmt.Errorf("LineClaimed USDT payment has MS amount at %s", eventKey)
+			}
+			grossU, _ := formatPerformanceAmount(event.GrossU)
+			feeU, _ := formatPerformanceAmount(event.FeeU)
+			msAmount, _ := formatPerformanceAmount(event.MsAmount)
+			rewards = append(rewards, &biz.StakingV1Reward{
+				BlockNumber: lg.BlockNumber, LogIndex: lg.Index, EventKey: eventKey, TxHash: txHash, EventType: biz.StakingV1RewardLineClaimed,
+				UserAddr: strings.ToLower(event.User.Hex()), OrderID: event.OrderId.String(),
+				GrossU: grossU, FeeU: feeU, PaidMs: event.PaidMs, MsAmount: msAmount,
+			})
+
+		default:
+			return nil, nil, nil, fmt.Errorf("unexpected performance log address=%s topic=%s block=%d index=%d", lg.Address.Hex(), lg.Topics[0].Hex(), lg.BlockNumber, lg.Index)
+		}
+	}
+	return stakes, extras, rewards, nil
+}
+
+func FetchPerformanceRecoverySafeHead(ctx context.Context) (uint64, error) {
+	var lastErr error
+	for _, url := range performanceRecoveryRPCURLs() {
+		rpcCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		client, err := ethclient.DialContext(rpcCtx, url)
+		if nil != err {
+			cancel()
+			lastErr = err
+			continue
+		}
+		head, err := client.BlockNumber(rpcCtx)
+		client.Close()
+		cancel()
+		if nil != err {
+			lastErr = err
+			continue
+		}
+		if head <= Confirmations {
+			lastErr = fmt.Errorf("bad performance recovery head %d", head)
+			continue
+		}
+		return head - Confirmations, nil
+	}
+	if nil == lastErr {
+		lastErr = fmt.Errorf("no performance recovery RPC configured")
+	}
+	return 0, lastErr
+}
+
+func fetchPerformanceHistoryLogsFromRPC(ctx context.Context, url string, fromBlock, toBlock uint64) ([]types.Log, error) {
+	rpcCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	client, err := rpc.DialContext(rpcCtx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer client.Close()
+
+	filter := map[string]interface{}{
+		"fromBlock": hexutil.EncodeUint64(fromBlock),
+		"toBlock":   hexutil.EncodeUint64(toBlock),
+		"address": []string{
+			strings.ToLower(UserV1BoundContract.Hex()), strings.ToLower(StakingV1Contract.Hex()),
+		},
+		"topics": [][]string{{
+			userV1StakeChangedTopic.Hex(), userV1ExtraChangedTopic.Hex(), stakingV1TeamBookedTopic.Hex(),
+			stakingV1TeamClaimedTopic.Hex(), stakingV1TeamExpiredTopic.Hex(), stakingV1LineClaimedTopic.Hex(),
+		}},
+	}
+	var filterID string
+	if err = client.CallContext(rpcCtx, &filterID, "eth_newFilter", filter); nil != err {
+		return nil, err
+	}
+	defer func() {
+		uninstallCtx, uninstallCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer uninstallCancel()
+		var removed bool
+		_ = client.CallContext(uninstallCtx, &removed, "eth_uninstallFilter", filterID)
+	}()
+
+	var logs []types.Log
+	if err = client.CallContext(rpcCtx, &logs, "eth_getFilterLogs", filterID); nil != err {
+		return nil, err
+	}
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+	return logs, nil
+}
+
+func FetchPerformanceHistoryLogs(ctx context.Context, fromBlock, toBlock uint64) ([]types.Log, error) {
+	urls := performanceRecoveryRPCURLs()
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("no performance recovery RPC configured")
+	}
+	start := int((fromBlock / PerformanceRecoveryStep) % uint64(len(urls)))
+	var lastErr error
+	for i := 0; i < len(urls); i++ {
+		url := urls[(start+i)%len(urls)]
+		logs, err := fetchPerformanceHistoryLogsFromRPC(ctx, url, fromBlock, toBlock)
+		if nil == err {
+			return logs, nil
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("performance history [%d,%d]: %w", fromBlock, toBlock, lastErr)
+}
+
+func FetchStakingV1LevelRewards(ctx context.Context, url string, users []*biz.UserV1Bound, blockNumber uint64) (map[uint64]string, error) {
+	result := make(map[uint64]string, len(users))
+	if 0 == len(users) {
+		return result, nil
+	}
+	client, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer client.Close()
+
+	selector := common.FromHex("0x78f2ea10")
+	blockTag := "latest"
+	if 0 != blockNumber {
+		blockTag = hexutil.EncodeUint64(blockNumber)
+	}
+	const batchSize = 50
+	for start := 0; start < len(users); start += batchSize {
+		end := start + batchSize
+		if end > len(users) {
+			end = len(users)
+		}
+		values := make([]hexutil.Bytes, end-start)
+		batch := make([]rpc.BatchElem, end-start)
+		for i := start; i < end; i++ {
+			if !common.IsHexAddress(users[i].UserAddr) {
+				return nil, fmt.Errorf("bad level reward user address %q", users[i].UserAddr)
+			}
+			data := make([]byte, 4+32)
+			copy(data[:4], selector)
+			copy(data[4+12:], common.HexToAddress(users[i].UserAddr).Bytes())
+			batch[i-start] = rpc.BatchElem{
+				Method: "eth_call",
+				Args: []interface{}{
+					map[string]interface{}{"to": StakingV1Contract, "data": hexutil.Bytes(data)}, blockTag,
+				},
+				Result: &values[i-start],
+			}
+		}
+
+		batchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		err = client.BatchCallContext(batchCtx, batch)
+		cancel()
+		if nil != err {
+			return nil, err
+		}
+		for i := range batch {
+			if nil != batch[i].Error {
+				return nil, batch[i].Error
+			}
+			amount, errT := formatPerformanceAmount(new(big.Int).SetBytes(values[i]))
+			if nil != errT {
+				return nil, errT
+			}
+			result[users[start+i].ID] = amount
+		}
+	}
+	return result, nil
 }
 
 // /////////////////////////////////////////////////////////////

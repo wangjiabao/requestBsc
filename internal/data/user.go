@@ -2,10 +2,13 @@ package data
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"requestEth/internal/biz"
+	"strings"
 	"time"
 )
 
@@ -256,6 +259,131 @@ type BindReferral struct {
 	CheckStatus uint64 `gorm:"column:check_status;not null;default:0" json:"check_status"`
 	CheckTime   uint64 `gorm:"column:check_time;not null;default:0" json:"check_time"`
 	Level       int
+}
+
+type UserV1Bound struct {
+	ID uint64 `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+
+	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
+
+	UserAddr      string `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	ParentAddr    string `gorm:"column:parent_addr;type:varchar(42);not null" json:"parent_addr"`
+	RecommendCode string `gorm:"column:recommend_code;type:varchar(4096);not null;default:''" json:"recommend_code"`
+
+	Amount                            string `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	AmountHistory                     string `gorm:"column:amount_history;type:decimal(65,18);not null;default:0"`
+	ChildrenAmount                    string `gorm:"column:children_amount;type:decimal(65,18);not null;default:0"`
+	ChildrenAmountHistory             string `gorm:"column:children_amount_history;type:decimal(65,18);not null;default:0"`
+	ChildrenAmountExtra               string `gorm:"column:children_amount_extra;type:decimal(65,18);not null;default:0"`
+	RewardRecommendAmount             string `gorm:"column:reward_recommend_amount;type:decimal(65,18);not null;default:0"`
+	RewardRecommendPay                string `gorm:"column:reward_recommend_pay;type:decimal(65,18);not null;default:0"`
+	RewardRecommendStoreAmount        string `gorm:"column:reward_recommend_store_amount;type:decimal(65,18);not null;default:0"`
+	RewardRecommendFee                string `gorm:"column:reward_recommend_fee;type:decimal(65,18);not null;default:0"`
+	RewardRecommendTeamUAmount        string `gorm:"column:reward_recommend_team_u_amount;type:decimal(65,18);not null;default:0"`
+	RewardRecommendClaimedTeamUNet    string `gorm:"column:reward_recommend_claimed_team_u_net;type:decimal(65,18);not null;default:0"`
+	RewardRecommendClaimedTeamUAmount string `gorm:"column:reward_recommend_claimed_team_u_amount;type:decimal(65,18);not null;default:0"`
+	RewardRecommendClaimedTeamUFee    string `gorm:"column:reward_recommend_claimed_team_u_fee;type:decimal(65,18);not null;default:0"`
+	RewardRecommendExpired            string `gorm:"column:reward_recommend_expired;type:decimal(65,18);not null;default:0"`
+	LineU                             string `gorm:"column:line_u;type:decimal(65,18);not null;default:0"`
+	LineCoinU                         string `gorm:"column:line_coin_u;type:decimal(65,18);not null;default:0"`
+	LineCoin                          string `gorm:"column:line_coin;type:decimal(65,18);not null;default:0"`
+	LineFee                           string `gorm:"column:line_fee;type:decimal(65,18);not null;default:0"`
+	LevelReward                       string `gorm:"column:level_reward;type:decimal(65,18);not null;default:0"`
+
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+}
+
+type UserV1BoundSyncProgress struct {
+	ID                 uint8     `gorm:"column:id;primaryKey"`
+	LastProcessedBlock uint64    `gorm:"column:last_processed_block;not null"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt          time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type UserV1PerformanceSyncProgress struct {
+	StreamName         string    `gorm:"column:stream_name;primaryKey;type:varchar(32)"`
+	LastProcessedBlock uint64    `gorm:"column:last_processed_block;not null"`
+	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt          time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type UserV1StakeChanged struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	IsAdd       bool      `gorm:"column:is_add;not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type UserV1ExtraChanged struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	ExtraAmount string    `gorm:"column:extra_amount;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1TeamBooked struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	FromAddr    string    `gorm:"column:from_addr;type:varchar(42);not null"`
+	ToAddr      string    `gorm:"column:to_addr;type:varchar(42);not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	StoreAmount string    `gorm:"column:store_amount;type:decimal(65,18);not null;default:0"`
+	Pay         string    `gorm:"column:pay;type:decimal(65,18);not null;default:0"`
+	Fee         string    `gorm:"column:fee;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1TeamClaimed struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	Fee         string    `gorm:"column:fee;type:decimal(65,18);not null;default:0"`
+	Net         string    `gorm:"column:net;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1TeamExpired struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	FromAddr    string    `gorm:"column:from_addr;type:varchar(42);not null"`
+	ToAddr      string    `gorm:"column:to_addr;type:varchar(42);not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1LineClaimed struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null;default:0"`
+	GrossU      string    `gorm:"column:gross_u;type:decimal(65,18);not null;default:0"`
+	FeeU        string    `gorm:"column:fee_u;type:decimal(65,18);not null;default:0"`
+	PaidMs      bool      `gorm:"column:paid_ms;not null;default:0"`
+	MsAmount    string    `gorm:"column:ms_amount;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 type StakingStaked struct {
@@ -1986,6 +2114,503 @@ func (u *UserRepo) InsertBindReferral(ctx context.Context, iData *biz.BindReferr
 	}
 	return nil
 }
+
+func toBizUserV1Bound(v *UserV1Bound) *biz.UserV1Bound {
+	if nil == v {
+		return nil
+	}
+
+	return &biz.UserV1Bound{
+		ID:          v.ID,
+		BlockNumber: v.BlockNumber,
+
+		UserAddr:      v.UserAddr,
+		ParentAddr:    v.ParentAddr,
+		RecommendCode: v.RecommendCode,
+
+		Amount:                            v.Amount,
+		AmountHistory:                     v.AmountHistory,
+		ChildrenAmount:                    v.ChildrenAmount,
+		ChildrenAmountHistory:             v.ChildrenAmountHistory,
+		ChildrenAmountExtra:               v.ChildrenAmountExtra,
+		RewardRecommendAmount:             v.RewardRecommendAmount,
+		RewardRecommendPay:                v.RewardRecommendPay,
+		RewardRecommendStoreAmount:        v.RewardRecommendStoreAmount,
+		RewardRecommendFee:                v.RewardRecommendFee,
+		RewardRecommendTeamUAmount:        v.RewardRecommendTeamUAmount,
+		RewardRecommendClaimedTeamUNet:    v.RewardRecommendClaimedTeamUNet,
+		RewardRecommendClaimedTeamUAmount: v.RewardRecommendClaimedTeamUAmount,
+		RewardRecommendClaimedTeamUFee:    v.RewardRecommendClaimedTeamUFee,
+		RewardRecommendExpired:            v.RewardRecommendExpired,
+		LineU:                             v.LineU,
+		LineCoinU:                         v.LineCoinU,
+		LineCoin:                          v.LineCoin,
+		LineFee:                           v.LineFee,
+		LevelReward:                       v.LevelReward,
+
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+	}
+}
+
+func (u *UserRepo) GetUserV1BoundLast(ctx context.Context) (*biz.UserV1Bound, error) {
+	var v UserV1Bound
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Order("id desc").First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "USER_V1_BOUND_ERROR", err.Error())
+	}
+
+	return toBizUserV1Bound(&v), nil
+}
+
+func (u *UserRepo) GetUserV1BoundByAddress(ctx context.Context, address string) (*biz.UserV1Bound, error) {
+	var v UserV1Bound
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("user_addr = ?", address).First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "USER_V1_BOUND_BY_ADDRESS_ERROR", err.Error())
+	}
+
+	return toBizUserV1Bound(&v), nil
+}
+
+func (u *UserRepo) GetUserV1Bounds(ctx context.Context) ([]*biz.UserV1Bound, error) {
+	var rows []UserV1Bound
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Order("id asc").Find(&rows).Error; nil != err {
+		return nil, errors.New(500, "USER_V1_BOUNDS_ERROR", err.Error())
+	}
+
+	result := make([]*biz.UserV1Bound, 0, len(rows))
+	for i := range rows {
+		result = append(result, toBizUserV1Bound(&rows[i]))
+	}
+	return result, nil
+}
+
+func (u *UserRepo) GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*biz.UserV1Bound, error) {
+	if 0 == len(ids) {
+		return []*biz.UserV1Bound{}, nil
+	}
+
+	var rows []UserV1Bound
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id IN ?", ids).Order("id asc").Find(&rows).Error; nil != err {
+		return nil, errors.New(500, "USER_V1_BOUNDS_BY_IDS_ERROR", err.Error())
+	}
+
+	result := make([]*biz.UserV1Bound, 0, len(rows))
+	for i := range rows {
+		result = append(result, toBizUserV1Bound(&rows[i]))
+	}
+	return result, nil
+}
+
+func decimalOrZero(value string) string {
+	if "" == strings.TrimSpace(value) {
+		return "0"
+	}
+	return value
+}
+
+func (u *UserRepo) InsertUserV1Bound(ctx context.Context, iData *biz.UserV1Bound) error {
+	var s UserV1Bound
+
+	s.ID = iData.ID
+	s.BlockNumber = iData.BlockNumber
+
+	s.UserAddr = iData.UserAddr
+	s.ParentAddr = iData.ParentAddr
+	s.RecommendCode = iData.RecommendCode
+	s.Amount = decimalOrZero(iData.Amount)
+	s.AmountHistory = decimalOrZero(iData.AmountHistory)
+	s.ChildrenAmount = decimalOrZero(iData.ChildrenAmount)
+	s.ChildrenAmountHistory = decimalOrZero(iData.ChildrenAmountHistory)
+	s.ChildrenAmountExtra = decimalOrZero(iData.ChildrenAmountExtra)
+	s.RewardRecommendAmount = decimalOrZero(iData.RewardRecommendAmount)
+	s.RewardRecommendPay = decimalOrZero(iData.RewardRecommendPay)
+	s.RewardRecommendStoreAmount = decimalOrZero(iData.RewardRecommendStoreAmount)
+	s.RewardRecommendFee = decimalOrZero(iData.RewardRecommendFee)
+	s.RewardRecommendTeamUAmount = decimalOrZero(iData.RewardRecommendTeamUAmount)
+	s.RewardRecommendClaimedTeamUNet = decimalOrZero(iData.RewardRecommendClaimedTeamUNet)
+	s.RewardRecommendClaimedTeamUAmount = decimalOrZero(iData.RewardRecommendClaimedTeamUAmount)
+	s.RewardRecommendClaimedTeamUFee = decimalOrZero(iData.RewardRecommendClaimedTeamUFee)
+	s.RewardRecommendExpired = decimalOrZero(iData.RewardRecommendExpired)
+	s.LineU = decimalOrZero(iData.LineU)
+	s.LineCoinU = decimalOrZero(iData.LineCoinU)
+	s.LineCoin = decimalOrZero(iData.LineCoin)
+	s.LineFee = decimalOrZero(iData.LineFee)
+	s.LevelReward = decimalOrZero(iData.LevelReward)
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Create(&s).Error; err != nil {
+		return errors.New(500, "CREATE_USER_V1_BOUND_ERROR", "信息创建失败")
+	}
+	iData.ID = s.ID
+
+	return nil
+}
+
+func (u *UserRepo) DeleteUserV1BoundAll(ctx context.Context) error {
+	if err := u.data.DB(ctx).Exec("DELETE FROM user_v1_bound_event").Error; err != nil {
+		return errors.New(500, "DELETE_USER_V1_BOUND_ERROR", "历史数据清理失败")
+	}
+	return nil
+}
+
+func (u *UserRepo) GetUserV1BoundSyncProgress(ctx context.Context) (*biz.UserV1BoundSyncProgress, error) {
+	var v UserV1BoundSyncProgress
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_sync_progress").Where("id = ?", 1).First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "USER_V1_BOUND_SYNC_PROGRESS_ERROR", err.Error())
+	}
+
+	return &biz.UserV1BoundSyncProgress{
+		ID:                 v.ID,
+		LastProcessedBlock: v.LastProcessedBlock,
+		CreatedAt:          v.CreatedAt,
+		UpdatedAt:          v.UpdatedAt,
+	}, nil
+}
+
+func (u *UserRepo) SaveUserV1BoundSyncProgress(ctx context.Context, lastProcessedBlock uint64) error {
+	progress := UserV1BoundSyncProgress{
+		ID:                 1,
+		LastProcessedBlock: lastProcessedBlock,
+	}
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_sync_progress").Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"last_processed_block", "updated_at"}),
+	}).Create(&progress).Error; err != nil {
+		return errors.New(500, "SAVE_USER_V1_BOUND_SYNC_PROGRESS_ERROR", "同步进度保存失败")
+	}
+
+	return nil
+}
+
+func (u *UserRepo) GetUserV1PerformanceSyncProgress(ctx context.Context, streamName string) (*biz.UserV1PerformanceSyncProgress, error) {
+	var v UserV1PerformanceSyncProgress
+	if err := u.data.DB(ctx).Table("user_v1_performance_sync_progress").Where("stream_name = ?", streamName).First(&v).Error; nil != err {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "USER_V1_PERFORMANCE_SYNC_PROGRESS_ERROR", err.Error())
+	}
+
+	return &biz.UserV1PerformanceSyncProgress{
+		StreamName:         v.StreamName,
+		LastProcessedBlock: v.LastProcessedBlock,
+		CreatedAt:          v.CreatedAt,
+		UpdatedAt:          v.UpdatedAt,
+	}, nil
+}
+
+func (u *UserRepo) SaveUserV1PerformanceSyncProgress(ctx context.Context, streamName string, lastProcessedBlock uint64) error {
+	progress := UserV1PerformanceSyncProgress{
+		StreamName:         streamName,
+		LastProcessedBlock: lastProcessedBlock,
+	}
+	if err := u.data.DB(ctx).Table("user_v1_performance_sync_progress").Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "stream_name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"last_processed_block", "updated_at"}),
+	}).Create(&progress).Error; nil != err {
+		return errors.New(500, "SAVE_USER_V1_PERFORMANCE_SYNC_PROGRESS_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) DeleteUserV1PerformanceSyncProgress(ctx context.Context, streamName string) error {
+	if err := u.data.DB(ctx).Table("user_v1_performance_sync_progress").Where("stream_name = ?", streamName).Delete(&UserV1PerformanceSyncProgress{}).Error; nil != err {
+		return errors.New(500, "DELETE_USER_V1_PERFORMANCE_SYNC_PROGRESS_ERROR", err.Error())
+	}
+	return nil
+}
+
+func createPerformanceEvent(ctx context.Context, db *gorm.DB, table string, value interface{}) (bool, error) {
+	result := db.WithContext(ctx).Table(table).Clauses(clause.OnConflict{DoNothing: true}).Create(value)
+	if nil != result.Error {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+func (u *UserRepo) InsertUserV1StakeChanged(ctx context.Context, event *biz.UserV1StakeChanged) (bool, error) {
+	row := &UserV1StakeChanged{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		UserAddr:    event.UserAddr,
+		Amount:      event.Amount,
+		IsAdd:       event.IsAdd,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "user_v1_stake_changed_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_USER_V1_STAKE_CHANGED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func (u *UserRepo) InsertUserV1ExtraChanged(ctx context.Context, event *biz.UserV1ExtraChanged) (bool, error) {
+	row := &UserV1ExtraChanged{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		UserAddr:    event.UserAddr,
+		ExtraAmount: event.ExtraAmount,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "user_v1_extra_changed_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_USER_V1_EXTRA_CHANGED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func (u *UserRepo) InsertStakingV1TeamBooked(ctx context.Context, event *biz.StakingV1Reward) (bool, error) {
+	row := &StakingV1TeamBooked{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		FromAddr:    event.FromAddr,
+		ToAddr:      event.ToAddr,
+		Amount:      event.Amount,
+		StoreAmount: event.StoreAmount,
+		Pay:         event.Pay,
+		Fee:         event.Fee,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "staking_v1_team_booked_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_STAKING_V1_TEAM_BOOKED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func (u *UserRepo) InsertStakingV1TeamClaimed(ctx context.Context, event *biz.StakingV1Reward) (bool, error) {
+	row := &StakingV1TeamClaimed{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		UserAddr:    event.UserAddr,
+		Amount:      event.Amount,
+		Fee:         event.Fee,
+		Net:         event.Net,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "staking_v1_team_claimed_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_STAKING_V1_TEAM_CLAIMED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func (u *UserRepo) InsertStakingV1TeamExpired(ctx context.Context, event *biz.StakingV1Reward) (bool, error) {
+	row := &StakingV1TeamExpired{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		FromAddr:    event.FromAddr,
+		ToAddr:      event.ToAddr,
+		Amount:      event.Amount,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "staking_v1_team_expired_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_STAKING_V1_TEAM_EXPIRED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func (u *UserRepo) InsertStakingV1LineClaimed(ctx context.Context, event *biz.StakingV1Reward) (bool, error) {
+	row := &StakingV1LineClaimed{
+		BlockNumber: event.BlockNumber,
+		EventKey:    event.EventKey,
+		TxHash:      event.TxHash,
+		UserAddr:    event.UserAddr,
+		OrderID:     event.OrderID,
+		GrossU:      event.GrossU,
+		FeeU:        event.FeeU,
+		PaidMs:      event.PaidMs,
+		MsAmount:    event.MsAmount,
+	}
+	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "staking_v1_line_claimed_event", row)
+	if nil != err {
+		return false, errors.New(500, "CREATE_STAKING_V1_LINE_CLAIMED_ERROR", err.Error())
+	}
+	event.ID = row.ID
+	return inserted, nil
+}
+
+func decimalAdd(column string, amount string) clause.Expr {
+	return gorm.Expr(column+" + CAST(? AS DECIMAL(65,18))", amount)
+}
+
+func decimalSub(column string, amount string) clause.Expr {
+	return gorm.Expr(column+" - CAST(? AS DECIMAL(65,18))", amount)
+}
+
+func (u *UserRepo) UpdateUserV1StakeAmount(ctx context.Context, userID uint64, amount string, isAdd bool) error {
+	if isAdd {
+		updates := map[string]interface{}{
+			"amount":         decimalAdd("amount", amount),
+			"amount_history": decimalAdd("amount_history", amount),
+		}
+		if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Updates(updates).Error; nil != err {
+			return errors.New(500, "UPDATE_USER_V1_STAKE_AMOUNT_ERROR", err.Error())
+		}
+		return nil
+	}
+
+	result := u.data.DB(ctx).Table("user_v1_bound_event").
+		Where("id = ? AND amount >= CAST(? AS DECIMAL(65,18))", userID, amount).
+		Update("amount", decimalSub("amount", amount))
+	if nil != result.Error {
+		return errors.New(500, "UPDATE_USER_V1_STAKE_AMOUNT_ERROR", result.Error.Error())
+	}
+	if 1 != result.RowsAffected {
+		err := fmt.Errorf("user %d amount is less than unstake amount %s", userID, amount)
+		return errors.New(500, "UPDATE_USER_V1_STAKE_AMOUNT_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1ChildrenAmount(ctx context.Context, userIDs []uint64, amount string, isAdd bool) error {
+	if 0 == len(userIDs) {
+		return nil
+	}
+	if isAdd {
+		updates := map[string]interface{}{
+			"children_amount":         decimalAdd("children_amount", amount),
+			"children_amount_history": decimalAdd("children_amount_history", amount),
+		}
+		if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id IN ?", userIDs).Updates(updates).Error; nil != err {
+			return errors.New(500, "UPDATE_USER_V1_CHILDREN_AMOUNT_ERROR", err.Error())
+		}
+		return nil
+	}
+
+	result := u.data.DB(ctx).Table("user_v1_bound_event").
+		Where("id IN ? AND children_amount >= CAST(? AS DECIMAL(65,18))", userIDs, amount).
+		Update("children_amount", decimalSub("children_amount", amount))
+	if nil != result.Error {
+		return errors.New(500, "UPDATE_USER_V1_CHILDREN_AMOUNT_ERROR", result.Error.Error())
+	}
+	if int64(len(userIDs)) != result.RowsAffected {
+		err := fmt.Errorf("one or more ancestors have children_amount less than unstake amount %s", amount)
+		return errors.New(500, "UPDATE_USER_V1_CHILDREN_AMOUNT_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1ExtraAmount(ctx context.Context, userID uint64, amount string) error {
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Update("children_amount_extra", amount).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_EXTRA_AMOUNT_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1TeamBooked(ctx context.Context, userID uint64, event *biz.StakingV1Reward) error {
+	updates := map[string]interface{}{
+		"reward_recommend_amount":        decimalAdd("reward_recommend_amount", event.Amount),
+		"reward_recommend_pay":           decimalAdd("reward_recommend_pay", event.Pay),
+		"reward_recommend_store_amount":  decimalAdd("reward_recommend_store_amount", event.StoreAmount),
+		"reward_recommend_fee":           decimalAdd("reward_recommend_fee", event.Fee),
+		"reward_recommend_team_u_amount": decimalAdd("reward_recommend_team_u_amount", event.StoreAmount),
+	}
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Updates(updates).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_TEAM_BOOKED_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1TeamClaimed(ctx context.Context, userID uint64, event *biz.StakingV1Reward) error {
+	updates := map[string]interface{}{
+		"reward_recommend_claimed_team_u_net":    decimalAdd("reward_recommend_claimed_team_u_net", event.Net),
+		"reward_recommend_claimed_team_u_amount": decimalAdd("reward_recommend_claimed_team_u_amount", event.Amount),
+		"reward_recommend_claimed_team_u_fee":    decimalAdd("reward_recommend_claimed_team_u_fee", event.Fee),
+		"reward_recommend_team_u_amount":         gorm.Expr("reward_recommend_team_u_amount - CAST(? AS DECIMAL(65,18))", event.Amount),
+	}
+	result := u.data.DB(ctx).Table("user_v1_bound_event").
+		Where("id = ? AND reward_recommend_team_u_amount >= CAST(? AS DECIMAL(65,18))", userID, event.Amount).
+		Updates(updates)
+	if nil != result.Error {
+		return errors.New(500, "UPDATE_USER_V1_TEAM_CLAIMED_ERROR", result.Error.Error())
+	}
+	if 1 != result.RowsAffected {
+		err := fmt.Errorf("user %d team_u is less than TeamClaimed amount %s", userID, event.Amount)
+		return errors.New(500, "UPDATE_USER_V1_TEAM_CLAIMED_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1TeamExpired(ctx context.Context, userID uint64, amount string) error {
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Update("reward_recommend_expired", decimalAdd("reward_recommend_expired", amount)).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_TEAM_EXPIRED_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1LineClaimed(ctx context.Context, userID uint64, event *biz.StakingV1Reward) error {
+	updates := map[string]interface{}{
+		"line_fee": decimalAdd("line_fee", event.FeeU),
+	}
+	if event.PaidMs {
+		updates["line_coin_u"] = decimalAdd("line_coin_u", event.GrossU)
+		updates["line_coin"] = decimalAdd("line_coin", event.MsAmount)
+	} else {
+		updates["line_u"] = decimalAdd("line_u", event.GrossU)
+	}
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Updates(updates).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_LINE_CLAIMED_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) UpdateUserV1LevelReward(ctx context.Context, userID uint64, amount string) error {
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Update("level_reward", amount).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_LEVEL_REWARD_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) ResetUserV1Performance(ctx context.Context) error {
+	columns := []string{
+		"amount", "amount_history", "children_amount", "children_amount_history", "children_amount_extra",
+		"reward_recommend_amount", "reward_recommend_pay", "reward_recommend_store_amount", "reward_recommend_fee",
+		"reward_recommend_team_u_amount", "reward_recommend_claimed_team_u_net", "reward_recommend_claimed_team_u_amount",
+		"reward_recommend_claimed_team_u_fee", "reward_recommend_expired", "line_u", "line_coin_u", "line_coin",
+		"line_fee", "level_reward",
+	}
+	updates := make(map[string]interface{}, len(columns))
+	for _, column := range columns {
+		updates[column] = 0
+	}
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("1 = 1").Updates(updates).Error; nil != err {
+		return errors.New(500, "RESET_USER_V1_PERFORMANCE_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) DeleteUserV1PerformanceEvents(ctx context.Context) error {
+	tables := []string{
+		"user_v1_stake_changed_event", "user_v1_extra_changed_event", "staking_v1_team_booked_event",
+		"staking_v1_team_claimed_event", "staking_v1_team_expired_event", "staking_v1_line_claimed_event",
+	}
+	for _, table := range tables {
+		if err := u.data.DB(ctx).Exec("DELETE FROM " + table).Error; nil != err {
+			return errors.New(500, "DELETE_USER_V1_PERFORMANCE_EVENTS_ERROR", err.Error())
+		}
+	}
+	return nil
+}
+
 func (u *UserRepo) GetStakingStakedLast(ctx context.Context) (*biz.StakingStaked, error) {
 	var v StakingStaked
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/go-kratos/kratos/v2/log"
 	pb "requestEth/api/requestEth/v1"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -237,6 +239,120 @@ type BindReferral struct {
 	Level       int8
 }
 
+type UserV1Bound struct {
+	ID uint64
+
+	BlockNumber uint64
+
+	UserAddr      string
+	ParentAddr    string
+	RecommendCode string
+
+	Amount                            string
+	AmountHistory                     string
+	ChildrenAmount                    string
+	ChildrenAmountHistory             string
+	ChildrenAmountExtra               string
+	RewardRecommendAmount             string
+	RewardRecommendPay                string
+	RewardRecommendStoreAmount        string
+	RewardRecommendFee                string
+	RewardRecommendTeamUAmount        string
+	RewardRecommendClaimedTeamUNet    string
+	RewardRecommendClaimedTeamUAmount string
+	RewardRecommendClaimedTeamUFee    string
+	RewardRecommendExpired            string
+	LineU                             string
+	LineCoinU                         string
+	LineCoin                          string
+	LineFee                           string
+	LevelReward                       string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type UserV1BoundSyncProgress struct {
+	ID                 uint8
+	LastProcessedBlock uint64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+type UserV1PerformanceSyncProgress struct {
+	StreamName         string
+	LastProcessedBlock uint64
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+const (
+	UserV1PerformanceStreamStake    = "stake_changed"
+	UserV1PerformanceStreamExtra    = "extra_changed"
+	UserV1PerformanceStreamReward   = "staking_reward"
+	UserV1PerformanceStreamRecovery = "recovery"
+)
+
+type UserV1StakeChanged struct {
+	ID          uint64
+	BlockNumber uint64
+	LogIndex    uint
+	EventKey    string
+	TxHash      string
+	UserAddr    string
+	Amount      string
+	IsAdd       bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type UserV1ExtraChanged struct {
+	ID          uint64
+	BlockNumber uint64
+	LogIndex    uint
+	EventKey    string
+	TxHash      string
+	UserAddr    string
+	ExtraAmount string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+const (
+	StakingV1RewardTeamBooked  = "team_booked"
+	StakingV1RewardTeamClaimed = "team_claimed"
+	StakingV1RewardTeamExpired = "team_expired"
+	StakingV1RewardLineClaimed = "line_claimed"
+)
+
+type StakingV1Reward struct {
+	ID          uint64
+	BlockNumber uint64
+	LogIndex    uint
+	EventKey    string
+	TxHash      string
+	EventType   string
+
+	FromAddr string
+	ToAddr   string
+	UserAddr string
+
+	Amount      string
+	StoreAmount string
+	Pay         string
+	Fee         string
+	Net         string
+
+	OrderID  string
+	GrossU   string
+	FeeU     string
+	PaidMs   bool
+	MsAmount string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type StakingStaked struct {
 	ID uint64
 
@@ -362,6 +478,33 @@ type UserRepo interface {
 	GetBindReferralLast(ctx context.Context) (*BindReferral, error)
 	GetBindReferrals(ctx context.Context) ([]*BindReferral, error)
 	InsertBindReferral(ctx context.Context, iData *BindReferral) error
+	GetUserV1BoundLast(ctx context.Context) (*UserV1Bound, error)
+	GetUserV1BoundByAddress(ctx context.Context, address string) (*UserV1Bound, error)
+	GetUserV1Bounds(ctx context.Context) ([]*UserV1Bound, error)
+	GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*UserV1Bound, error)
+	InsertUserV1Bound(ctx context.Context, iData *UserV1Bound) error
+	DeleteUserV1BoundAll(ctx context.Context) error
+	GetUserV1BoundSyncProgress(ctx context.Context) (*UserV1BoundSyncProgress, error)
+	SaveUserV1BoundSyncProgress(ctx context.Context, lastProcessedBlock uint64) error
+	GetUserV1PerformanceSyncProgress(ctx context.Context, streamName string) (*UserV1PerformanceSyncProgress, error)
+	SaveUserV1PerformanceSyncProgress(ctx context.Context, streamName string, lastProcessedBlock uint64) error
+	DeleteUserV1PerformanceSyncProgress(ctx context.Context, streamName string) error
+	InsertUserV1StakeChanged(ctx context.Context, event *UserV1StakeChanged) (bool, error)
+	InsertUserV1ExtraChanged(ctx context.Context, event *UserV1ExtraChanged) (bool, error)
+	InsertStakingV1TeamBooked(ctx context.Context, event *StakingV1Reward) (bool, error)
+	InsertStakingV1TeamClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
+	InsertStakingV1TeamExpired(ctx context.Context, event *StakingV1Reward) (bool, error)
+	InsertStakingV1LineClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
+	UpdateUserV1StakeAmount(ctx context.Context, userID uint64, amount string, isAdd bool) error
+	UpdateUserV1ChildrenAmount(ctx context.Context, userIDs []uint64, amount string, isAdd bool) error
+	UpdateUserV1ExtraAmount(ctx context.Context, userID uint64, amount string) error
+	UpdateUserV1TeamBooked(ctx context.Context, userID uint64, event *StakingV1Reward) error
+	UpdateUserV1TeamClaimed(ctx context.Context, userID uint64, event *StakingV1Reward) error
+	UpdateUserV1TeamExpired(ctx context.Context, userID uint64, amount string) error
+	UpdateUserV1LineClaimed(ctx context.Context, userID uint64, event *StakingV1Reward) error
+	UpdateUserV1LevelReward(ctx context.Context, userID uint64, amount string) error
+	ResetUserV1Performance(ctx context.Context) error
+	DeleteUserV1PerformanceEvents(ctx context.Context) error
 	GetStakingStakedLast(ctx context.Context) (*StakingStaked, error)
 	InsertStakingStaked(ctx context.Context, iData *StakingStaked) error
 	GetStakingQueueAddedLast(ctx context.Context) (*StakingQueueAdded, error)
@@ -1232,6 +1375,445 @@ func (ac *AppUsecase) InsertBindReferral(ctx context.Context, trade *BindReferra
 	}
 
 	return err
+}
+
+func (ac *AppUsecase) GetUserV1BoundLast(ctx context.Context) (*UserV1Bound, error) {
+	var (
+		rLast *UserV1Bound
+		err   error
+	)
+	rLast, err = ac.userRepo.GetUserV1BoundLast(ctx)
+	if nil != err || nil == rLast {
+		return nil, err
+	}
+
+	return rLast, nil
+}
+
+func (ac *AppUsecase) InsertUserV1Bound(ctx context.Context, trade *UserV1Bound) error {
+	var (
+		err error
+	)
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error { // 事务
+		err = ac.userRepo.InsertUserV1Bound(ctx, trade)
+		if nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "bind写入mysql错误")
+		return err
+	}
+
+	return err
+}
+
+func (ac *AppUsecase) GetUserV1BoundSyncProgress(ctx context.Context) (*UserV1BoundSyncProgress, error) {
+	progress, err := ac.userRepo.GetUserV1BoundSyncProgress(ctx)
+	if nil != err || nil == progress {
+		return nil, err
+	}
+
+	return progress, nil
+}
+
+func (ac *AppUsecase) SaveUserV1BoundRange(ctx context.Context, events []*UserV1Bound, lastProcessedBlock uint64) error {
+	var err error
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		for _, event := range events {
+			existing, errT := ac.userRepo.GetUserV1BoundByAddress(ctx, event.UserAddr)
+			if nil != errT {
+				return errT
+			}
+			if nil != existing {
+				if existing.BlockNumber != event.BlockNumber || !strings.EqualFold(existing.ParentAddr, event.ParentAddr) {
+					return fmt.Errorf("user %s event mismatch: db_block=%d chain_block=%d db_parent=%s chain_parent=%s", event.UserAddr, existing.BlockNumber, event.BlockNumber, existing.ParentAddr, event.ParentAddr)
+				}
+				continue
+			}
+
+			var parent *UserV1Bound
+			if strings.EqualFold(event.ParentAddr, "0x0000000000000000000000000000000000000000") {
+				event.RecommendCode = ""
+			} else {
+				parent, errT = ac.userRepo.GetUserV1BoundByAddress(ctx, event.ParentAddr)
+				if nil != errT {
+					return errT
+				}
+				if nil == parent {
+					return fmt.Errorf("user %s parent %s does not exist", event.UserAddr, event.ParentAddr)
+				}
+				event.RecommendCode = parent.RecommendCode + "D" + strconv.FormatUint(parent.ID, 10)
+			}
+
+			if err = ac.userRepo.InsertUserV1Bound(ctx, event); nil != err {
+				return err
+			}
+			if nil != parent && parent.ID >= event.ID {
+				return fmt.Errorf("user %s id %d must be greater than parent id %d", event.UserAddr, event.ID, parent.ID)
+			}
+		}
+
+		if err = ac.userRepo.SaveUserV1BoundSyncProgress(ctx, lastProcessedBlock); nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "user bound分段写入mysql错误")
+		return err
+	}
+
+	return nil
+}
+
+func (ac *AppUsecase) RebuildUserV1Bound(ctx context.Context, events []*UserV1Bound, lastProcessedBlock uint64) error {
+	var err error
+
+	if err = ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		existingRows, errT := ac.userRepo.GetUserV1Bounds(ctx)
+		if nil != errT {
+			return errT
+		}
+		existingByAddress := make(map[string]*UserV1Bound, len(existingRows))
+		for _, row := range existingRows {
+			existingByAddress[strings.ToLower(row.UserAddr)] = row
+		}
+		for _, event := range events {
+			if existing := existingByAddress[strings.ToLower(event.UserAddr)]; nil != existing {
+				copyUserV1Performance(event, existing)
+			}
+		}
+
+		if err = ac.userRepo.DeleteUserV1BoundAll(ctx); nil != err {
+			return err
+		}
+
+		for _, event := range events {
+			if err = ac.userRepo.InsertUserV1Bound(ctx, event); nil != err {
+				return err
+			}
+		}
+
+		if err = ac.userRepo.SaveUserV1BoundSyncProgress(ctx, lastProcessedBlock); nil != err {
+			return err
+		}
+
+		return nil
+	}); nil != err {
+		fmt.Println(err, "user bound历史重建写入mysql错误")
+		return err
+	}
+
+	return nil
+}
+
+func copyUserV1Performance(target *UserV1Bound, source *UserV1Bound) {
+	target.Amount = source.Amount
+	target.AmountHistory = source.AmountHistory
+	target.ChildrenAmount = source.ChildrenAmount
+	target.ChildrenAmountHistory = source.ChildrenAmountHistory
+	target.ChildrenAmountExtra = source.ChildrenAmountExtra
+	target.RewardRecommendAmount = source.RewardRecommendAmount
+	target.RewardRecommendPay = source.RewardRecommendPay
+	target.RewardRecommendStoreAmount = source.RewardRecommendStoreAmount
+	target.RewardRecommendFee = source.RewardRecommendFee
+	target.RewardRecommendTeamUAmount = source.RewardRecommendTeamUAmount
+	target.RewardRecommendClaimedTeamUNet = source.RewardRecommendClaimedTeamUNet
+	target.RewardRecommendClaimedTeamUAmount = source.RewardRecommendClaimedTeamUAmount
+	target.RewardRecommendClaimedTeamUFee = source.RewardRecommendClaimedTeamUFee
+	target.RewardRecommendExpired = source.RewardRecommendExpired
+	target.LineU = source.LineU
+	target.LineCoinU = source.LineCoinU
+	target.LineCoin = source.LineCoin
+	target.LineFee = source.LineFee
+	target.LevelReward = source.LevelReward
+}
+
+func (ac *AppUsecase) GetUserV1BoundByAddress(ctx context.Context, address string) (*UserV1Bound, error) {
+	return ac.userRepo.GetUserV1BoundByAddress(ctx, strings.ToLower(address))
+}
+
+func (ac *AppUsecase) GetUserV1Bounds(ctx context.Context) ([]*UserV1Bound, error) {
+	return ac.userRepo.GetUserV1Bounds(ctx)
+}
+
+func (ac *AppUsecase) GetUserV1PerformanceSyncProgress(ctx context.Context, streamName string) (*UserV1PerformanceSyncProgress, error) {
+	return ac.userRepo.GetUserV1PerformanceSyncProgress(ctx, streamName)
+}
+
+func userV1RecommendIDs(recommendCode string) ([]uint64, error) {
+	recommendCode = strings.TrimSpace(recommendCode)
+	if "" == recommendCode {
+		return []uint64{}, nil
+	}
+	if !strings.HasPrefix(recommendCode, "D") {
+		return nil, fmt.Errorf("bad recommend code %q", recommendCode)
+	}
+
+	parts := strings.Split(recommendCode, "D")
+	ids := make([]uint64, 0, len(parts)-1)
+	for _, part := range parts[1:] {
+		if "" == part {
+			return nil, fmt.Errorf("bad recommend code %q", recommendCode)
+		}
+		id, err := strconv.ParseUint(part, 10, 64)
+		if nil != err || 0 == id {
+			return nil, fmt.Errorf("bad recommend user id %q in %q", part, recommendCode)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (ac *AppUsecase) checkedUserV1Ancestors(ctx context.Context, user *UserV1Bound, includeRootSelf bool) ([]uint64, error) {
+	ids, err := userV1RecommendIDs(user.RecommendCode)
+	if nil != err {
+		return nil, err
+	}
+	if includeRootSelf && 1 == user.ID && 0 == len(ids) {
+		// UserV1 的根用户在 _walk(root) 中会把自己的质押计入 basePerf。
+		ids = append(ids, user.ID)
+	}
+	if 0 == len(ids) {
+		return ids, nil
+	}
+	rows, err := ac.userRepo.GetUserV1BoundsByIDs(ctx, ids)
+	if nil != err {
+		return nil, err
+	}
+	if len(rows) != len(ids) {
+		return nil, fmt.Errorf("user %s recommend path is incomplete: code=%s ids=%d rows=%d", user.UserAddr, user.RecommendCode, len(ids), len(rows))
+	}
+	return ids, nil
+}
+
+func (ac *AppUsecase) saveUserV1StakeChangedEvents(ctx context.Context, events []*UserV1StakeChanged) error {
+	for _, event := range events {
+		inserted, err := ac.userRepo.InsertUserV1StakeChanged(ctx, event)
+		if nil != err {
+			return err
+		}
+		if !inserted {
+			continue
+		}
+
+		user, err := ac.userRepo.GetUserV1BoundByAddress(ctx, strings.ToLower(event.UserAddr))
+		if nil != err {
+			return err
+		}
+		if nil == user {
+			return fmt.Errorf("StakeChanged user %s is not in user_v1_bound_event", event.UserAddr)
+		}
+		ancestorIDs, err := ac.checkedUserV1Ancestors(ctx, user, true)
+		if nil != err {
+			return err
+		}
+		if err = ac.userRepo.UpdateUserV1StakeAmount(ctx, user.ID, event.Amount, event.IsAdd); nil != err {
+			return err
+		}
+		if err = ac.userRepo.UpdateUserV1ChildrenAmount(ctx, ancestorIDs, event.Amount, event.IsAdd); nil != err {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ac *AppUsecase) saveUserV1ExtraChangedEvents(ctx context.Context, events []*UserV1ExtraChanged) error {
+	for _, event := range events {
+		inserted, err := ac.userRepo.InsertUserV1ExtraChanged(ctx, event)
+		if nil != err {
+			return err
+		}
+		if !inserted {
+			continue
+		}
+
+		user, err := ac.userRepo.GetUserV1BoundByAddress(ctx, strings.ToLower(event.UserAddr))
+		if nil != err {
+			return err
+		}
+		if nil == user {
+			return fmt.Errorf("ExtraChanged user %s is not in user_v1_bound_event", event.UserAddr)
+		}
+		if err = ac.userRepo.UpdateUserV1ExtraAmount(ctx, user.ID, event.ExtraAmount); nil != err {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ac *AppUsecase) saveStakingV1RewardEvents(ctx context.Context, events []*StakingV1Reward) error {
+	for _, event := range events {
+		var (
+			inserted bool
+			err      error
+			address  string
+		)
+		switch event.EventType {
+		case StakingV1RewardTeamBooked:
+			inserted, err = ac.userRepo.InsertStakingV1TeamBooked(ctx, event)
+			address = event.ToAddr
+		case StakingV1RewardTeamClaimed:
+			inserted, err = ac.userRepo.InsertStakingV1TeamClaimed(ctx, event)
+			address = event.UserAddr
+		case StakingV1RewardTeamExpired:
+			inserted, err = ac.userRepo.InsertStakingV1TeamExpired(ctx, event)
+			address = event.ToAddr
+		case StakingV1RewardLineClaimed:
+			inserted, err = ac.userRepo.InsertStakingV1LineClaimed(ctx, event)
+			address = event.UserAddr
+		default:
+			return fmt.Errorf("unknown staking reward event type %q", event.EventType)
+		}
+		if nil != err {
+			return err
+		}
+		if !inserted {
+			continue
+		}
+
+		user, err := ac.userRepo.GetUserV1BoundByAddress(ctx, strings.ToLower(address))
+		if nil != err {
+			return err
+		}
+		if nil == user {
+			return fmt.Errorf("%s user %s is not in user_v1_bound_event", event.EventType, address)
+		}
+
+		switch event.EventType {
+		case StakingV1RewardTeamBooked:
+			err = ac.userRepo.UpdateUserV1TeamBooked(ctx, user.ID, event)
+		case StakingV1RewardTeamClaimed:
+			err = ac.userRepo.UpdateUserV1TeamClaimed(ctx, user.ID, event)
+		case StakingV1RewardTeamExpired:
+			err = ac.userRepo.UpdateUserV1TeamExpired(ctx, user.ID, event.Amount)
+		case StakingV1RewardLineClaimed:
+			err = ac.userRepo.UpdateUserV1LineClaimed(ctx, user.ID, event)
+		}
+		if nil != err {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ac *AppUsecase) SaveUserV1StakeChangedRange(ctx context.Context, events []*UserV1StakeChanged, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveUserV1StakeChangedEvents(ctx, events); nil != err {
+			return err
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamStake, lastProcessedBlock)
+	})
+}
+
+func (ac *AppUsecase) SaveUserV1ExtraChangedRange(ctx context.Context, events []*UserV1ExtraChanged, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveUserV1ExtraChangedEvents(ctx, events); nil != err {
+			return err
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamExtra, lastProcessedBlock)
+	})
+}
+
+func (ac *AppUsecase) SaveStakingV1RewardRange(ctx context.Context, events []*StakingV1Reward, levelRewards map[uint64]string, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveStakingV1RewardEvents(ctx, events); nil != err {
+			return err
+		}
+		for userID, amount := range levelRewards {
+			if err := ac.userRepo.UpdateUserV1LevelReward(ctx, userID, amount); nil != err {
+				return err
+			}
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamReward, lastProcessedBlock)
+	})
+}
+
+func (ac *AppUsecase) InitializeUserV1PerformanceRecovery(ctx context.Context, startBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.userRepo.ResetUserV1Performance(ctx); nil != err {
+			return err
+		}
+		if err := ac.userRepo.DeleteUserV1PerformanceEvents(ctx); nil != err {
+			return err
+		}
+		for _, streamName := range []string{
+			UserV1PerformanceStreamStake, UserV1PerformanceStreamExtra, UserV1PerformanceStreamReward,
+		} {
+			if err := ac.userRepo.DeleteUserV1PerformanceSyncProgress(ctx, streamName); nil != err {
+				return err
+			}
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamRecovery, startBlock)
+	})
+}
+
+func (ac *AppUsecase) SaveUserV1PerformanceRecoveryRange(ctx context.Context, stakes []*UserV1StakeChanged, extras []*UserV1ExtraChanged, rewards []*StakingV1Reward, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveUserV1StakeChangedEvents(ctx, stakes); nil != err {
+			return err
+		}
+		if err := ac.saveUserV1ExtraChangedEvents(ctx, extras); nil != err {
+			return err
+		}
+		if err := ac.saveStakingV1RewardEvents(ctx, rewards); nil != err {
+			return err
+		}
+		// 历史恢复未完成前只推进 recovery；完成后再一次性开放三个增量接口。
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamRecovery, lastProcessedBlock)
+	})
+}
+
+func (ac *AppUsecase) CompleteUserV1PerformanceRecovery(ctx context.Context, levelRewards map[uint64]string, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		for userID, amount := range levelRewards {
+			if err := ac.userRepo.UpdateUserV1LevelReward(ctx, userID, amount); nil != err {
+				return err
+			}
+		}
+		for _, streamName := range []string{
+			UserV1PerformanceStreamStake, UserV1PerformanceStreamExtra,
+			UserV1PerformanceStreamReward, UserV1PerformanceStreamRecovery,
+		} {
+			if err := ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, streamName, lastProcessedBlock); nil != err {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (ac *AppUsecase) GetStakingV1LineRewardUsers(ctx context.Context, events []*StakingV1Reward) ([]*UserV1Bound, error) {
+	ids := make([]uint64, 0)
+	seen := make(map[uint64]struct{})
+	for _, event := range events {
+		if StakingV1RewardLineClaimed != event.EventType {
+			continue
+		}
+		user, err := ac.userRepo.GetUserV1BoundByAddress(ctx, strings.ToLower(event.UserAddr))
+		if nil != err {
+			return nil, err
+		}
+		if nil == user {
+			return nil, fmt.Errorf("LineClaimed user %s is not in user_v1_bound_event", event.UserAddr)
+		}
+		ancestorIDs, err := ac.checkedUserV1Ancestors(ctx, user, false)
+		if nil != err {
+			return nil, err
+		}
+		for _, id := range ancestorIDs {
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+	return ac.userRepo.GetUserV1BoundsByIDs(ctx, ids)
 }
 
 func (ac *AppUsecase) GetStakingStakedLast(ctx context.Context) (*StakingStaked, error) {

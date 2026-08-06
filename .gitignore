@@ -37,3 +37,7 @@ bin/
 .vscode/
 .idea/
 *.swp
+
+# Local secrets and machine-specific service configuration
+configs/*.local.env
+configs/*.local.yaml

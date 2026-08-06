@@ -15,7 +15,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/AddLiquidityRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.AddLiquidityRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -23,13 +23,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/AddLiquidityReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.AddLiquidityReply'
     /api/add_white:
         get:
             tags:
@@ -41,13 +35,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/AddWhiteReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.AddWhiteReply'
     /api/buy:
         post:
             tags:
@@ -57,7 +45,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/BuyAICATRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.BuyAICATRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -65,13 +53,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/BuyAICATReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.BuyAICATReply'
     /api/eth_balance:
         get:
             tags:
@@ -88,13 +70,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/EthBalanceReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.EthBalanceReply'
     /api/generate_key:
         get:
             tags:
@@ -106,13 +82,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GenerateKeyReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GenerateKeyReply'
     /api/get_address_box:
         get:
             tags:
@@ -122,11 +92,13 @@ paths:
                 - name: start
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: end
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: address
                   in: query
                   schema:
@@ -134,40 +106,40 @@ paths:
                 - name: page
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: num
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: numTwo
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: numThree
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: numFour
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: openStatus
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetAddressBoxReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetAddressBoxReply'
     /api/get_all:
         get:
             tags:
@@ -179,13 +151,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetAllReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetAllReply'
     /api/get_all_info:
         get:
             tags:
@@ -195,24 +161,20 @@ paths:
                 - name: start
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: end
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetAllInfoReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetAllInfoReply'
     /api/get_all_two:
         get:
             tags:
@@ -229,13 +191,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetAllTwoReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetAllTwoReply'
     /api/get_array:
         get:
             tags:
@@ -264,13 +220,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetArrayReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetArrayReply'
     /api/get_bind_user_event:
         get:
             tags:
@@ -282,13 +232,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/get_box_all:
         get:
             tags:
@@ -300,13 +244,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxAllReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxAllReply'
     /api/get_box_buy_event:
         get:
             tags:
@@ -318,13 +256,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxBuyEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxBuyEventReply'
     /api/get_box_list_event:
         get:
             tags:
@@ -336,13 +268,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxListEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxListEventReply'
     /api/get_box_mint_event:
         get:
             tags:
@@ -354,13 +280,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxMintEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxMintEventReply'
     /api/get_box_mint_event_fix:
         get:
             tags:
@@ -372,13 +292,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxMintEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxMintEventReply'
     /api/get_box_new:
         get:
             tags:
@@ -399,13 +313,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxNewReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxNewReply'
     /api/get_box_open:
         get:
             tags:
@@ -426,13 +334,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxOpenReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxOpenReply'
     /api/get_box_open_event:
         get:
             tags:
@@ -444,13 +346,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxOpenEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxOpenEventReply'
     /api/get_box_reward_event:
         get:
             tags:
@@ -462,13 +358,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxRewardEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxRewardEventReply'
     /api/get_box_transfer_event:
         get:
             tags:
@@ -480,13 +370,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxTransferEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxTransferEventReply'
     /api/get_box_unlist_event:
         get:
             tags:
@@ -498,13 +382,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBoxUnListEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBoxUnListEventReply'
     /api/get_buy:
         get:
             tags:
@@ -525,13 +403,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBuyByOrderIdReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBuyByOrderIdReply'
     /api/get_buy_aicat_by_order_id:
         get:
             tags:
@@ -548,13 +420,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBuyAICATByOrderIdReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBuyAICATByOrderIdReply'
     /api/get_buy_box_list:
         get:
             tags:
@@ -568,20 +434,15 @@ paths:
                 - name: page
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBuyBoxListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBuyBoxListReply'
     /api/get_buy_event:
         get:
             tags:
@@ -593,13 +454,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBuyEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBuyEventReply'
     /api/get_buy_list:
         get:
             tags:
@@ -609,24 +464,20 @@ paths:
                 - name: start
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: end
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetBuyListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetBuyListReply'
     /api/get_daily_fee:
         get:
             tags:
@@ -643,13 +494,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetDailyFeeReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetDailyFeeReply'
     /api/get_exchange_event:
         get:
             tags:
@@ -661,13 +506,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetExchangeEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetExchangeEventReply'
     /api/get_exchange_list:
         get:
             tags:
@@ -677,24 +516,20 @@ paths:
                 - name: start
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: end
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetExchangeListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetExchangeListReply'
     /api/get_lp:
         get:
             tags:
@@ -711,13 +546,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetLpByOrderIdReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetLpByOrderIdReply'
     /api/get_market_box_list:
         get:
             tags:
@@ -727,32 +556,30 @@ paths:
                 - name: page
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: numTwo
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: num
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: numThree
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetMarketListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetMarketListReply'
     /api/get_queue_array:
         get:
             tags:
@@ -764,13 +591,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/get_queue_event:
         get:
             tags:
@@ -782,13 +603,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/get_reserves:
         get:
             tags:
@@ -805,13 +620,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetReservesReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetReservesReply'
     /api/get_reward_list:
         get:
             tags:
@@ -825,24 +634,20 @@ paths:
                 - name: page
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
                 - name: reason
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetRewardListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetRewardListReply'
     /api/get_sell_box_list:
         get:
             tags:
@@ -856,20 +661,15 @@ paths:
                 - name: page
                   in: query
                   schema:
-                    type: string
+                    type: integer
+                    format: uint64
             responses:
                 "200":
                     description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetSellBoxListReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetSellBoxListReply'
     /api/get_sell_event:
         get:
             tags:
@@ -881,13 +681,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetSellEventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetSellEventReply'
     /api/get_stake:
         get:
             tags:
@@ -899,13 +693,43 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_staking_reward_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetStakingRewardEvent
+            responses:
+                "200":
+                    description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_user_bound_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserBoundEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_user_extra_changed_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserExtraChangedEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/get_user_lp:
         get:
             tags:
@@ -922,13 +746,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserLpReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserLpReply'
     /api/get_user_r_event:
         get:
             tags:
@@ -940,13 +758,19 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_user_stake_changed_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserStakeChangedEvent
+            responses:
+                "200":
+                    description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/p_queue:
         get:
             tags:
@@ -958,13 +782,31 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/recover_performance_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_RecoverPerformanceEvent
+            responses:
+                "200":
+                    description: OK
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/recover_user_bound_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_RecoverUserBoundEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/remove_liquidity:
         post:
             tags:
@@ -974,7 +816,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/RemoveLiquidityRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.RemoveLiquidityRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -982,13 +824,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/RemoveLiquidityReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.RemoveLiquidityReply'
     /api/send_aicat:
         post:
             tags:
@@ -998,7 +834,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/SendAICATRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.SendAICATRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1006,13 +842,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/SendAICATReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.SendAICATReply'
     /api/set_reward:
         post:
             tags:
@@ -1022,7 +852,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/SetRewardRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.SetRewardRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1030,13 +860,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/SetRewardReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.SetRewardReply'
     /api/set_reward_two:
         post:
             tags:
@@ -1046,7 +870,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/SetRewardRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.SetRewardRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1054,13 +878,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/SetRewardReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.SetRewardReply'
     /api/set_user:
         get:
             tags:
@@ -1072,13 +890,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/GetUserREventReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
     /api/transaction:
         post:
             tags:
@@ -1088,7 +900,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/SendTransactionRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.SendTransactionRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1096,13 +908,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/SendTransactionReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.SendTransactionReply'
     /api/transaction/{tx}:
         get:
             tags:
@@ -1120,13 +926,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/TransactionReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.TransactionReply'
     /api/transaction_eth:
         post:
             tags:
@@ -1136,7 +936,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/SendTransactionEthRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.SendTransactionEthRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1144,13 +944,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/SendTransactionEthReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.SendTransactionEthReply'
     /api/update_box:
         get:
             tags:
@@ -1162,13 +956,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/UpdateBoxReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.UpdateBoxReply'
     /api/usdt_balance:
         get:
             tags:
@@ -1189,13 +977,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/TokenBalanceReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.TokenBalanceReply'
     /api/verify_sig:
         get:
             tags:
@@ -1216,13 +998,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/VerifySigReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.VerifySigReply'
     /api/withdraw:
         post:
             tags:
@@ -1232,7 +1008,7 @@ paths:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/WithdrawAICATRequest_SendBody'
+                            $ref: '#/components/schemas/api.requestEth.v1.WithdrawAICATRequest_SendBody'
                 required: true
             responses:
                 "200":
@@ -1240,21 +1016,15 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/WithdrawAICATReply'
-                default:
-                    description: Default error response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/api.requestEth.v1.WithdrawAICATReply'
 components:
     schemas:
-        AddLiquidityReply:
+        api.requestEth.v1.AddLiquidityReply:
             type: object
             properties:
                 res:
                     type: string
-        AddLiquidityRequest_SendBody:
+        api.requestEth.v1.AddLiquidityRequest_SendBody:
             type: object
             properties:
                 orderId:
@@ -1265,17 +1035,17 @@ components:
                     type: string
                 amountAicat:
                     type: string
-        AddWhiteReply:
+        api.requestEth.v1.AddWhiteReply:
             type: object
             properties:
                 res:
                     type: string
-        BuyAICATReply:
+        api.requestEth.v1.BuyAICATReply:
             type: object
             properties:
                 res:
                     type: string
-        BuyAICATRequest_SendBody:
+        api.requestEth.v1.BuyAICATRequest_SendBody:
             type: object
             properties:
                 orderId:
@@ -1284,14 +1054,14 @@ components:
                     type: string
                 contract:
                     type: string
-        EthBalanceReply:
+        api.requestEth.v1.EthBalanceReply:
             type: object
             properties:
                 balance:
                     type: string
                 err:
                     type: string
-        GenerateKeyReply:
+        api.requestEth.v1.GenerateKeyReply:
             type: object
             properties:
                 address:
@@ -1300,80 +1070,97 @@ components:
                     type: string
                 err:
                     type: string
-        GetAddressBoxReply:
+        api.requestEth.v1.GetAddressBoxReply:
             type: object
             properties:
                 count:
-                    type: string
+                    type: integer
+                    format: uint64
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetAddressBoxReply_List'
-        GetAddressBoxReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetAddressBoxReply_List'
+        api.requestEth.v1.GetAddressBoxReply_List:
             type: object
             properties:
                 tokenId:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdt:
                     type: number
                     format: double
                 tier:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdtNow:
                     type: number
                     format: double
                 blockTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 listTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 openStatus:
-                    type: string
+                    type: integer
+                    format: uint64
                 openTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 minter:
                     type: string
-        GetAllInfoReply:
+        api.requestEth.v1.GetAllInfoReply:
             type: object
             properties:
                 userCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 todayUserCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 todayMintedCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 todayMintedSum:
                     type: string
                 mintedCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintedSum:
                     type: string
                 mintedCountNoOpen:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintedSumNoOpen:
                     type: string
                 mintedCountOne:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintedSumOne:
                     type: string
                 mintedCountTwo:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintedSumTwo:
                     type: string
                 mintedCountThree:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintedSumThree:
                     type: string
                 buyCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 buySum:
                     type: string
                 todayBuyCount:
-                    type: string
+                    type: integer
+                    format: uint64
                 todayBuySum:
                     type: string
                 openReward:
                     type: string
-        GetAllReply:
+        api.requestEth.v1.GetAllReply:
             type: object
             properties:
                 buyArrayLength:
@@ -1382,47 +1169,47 @@ components:
                     type: string
                 withdrawArrayLength:
                     type: string
-        GetAllTwoReply:
+        api.requestEth.v1.GetAllTwoReply:
             type: object
             properties:
                 buyArrayLength:
                     type: string
-        GetArrayReply:
+        api.requestEth.v1.GetArrayReply:
             type: object
             properties:
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetArrayReply_List'
-        GetArrayReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetArrayReply_List'
+        api.requestEth.v1.GetArrayReply_List:
             type: object
             properties:
                 orderId:
                     type: string
-        GetBoxAllReply:
+        api.requestEth.v1.GetBoxAllReply:
             type: object
             properties:
                 newLength:
                     type: string
                 openLength:
                     type: string
-        GetBoxBuyEventReply:
+        api.requestEth.v1.GetBoxBuyEventReply:
             type: object
             properties: {}
-        GetBoxListEventReply:
+        api.requestEth.v1.GetBoxListEventReply:
             type: object
             properties: {}
-        GetBoxMintEventReply:
+        api.requestEth.v1.GetBoxMintEventReply:
             type: object
             properties: {}
-        GetBoxNewReply:
+        api.requestEth.v1.GetBoxNewReply:
             type: object
             properties:
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetBoxNewReply_List'
-        GetBoxNewReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetBoxNewReply_List'
+        api.requestEth.v1.GetBoxNewReply_List:
             type: object
             properties:
                 tokenId:
@@ -1430,24 +1217,27 @@ components:
                 price:
                     type: string
                 openedAt:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintAt:
-                    type: string
+                    type: integer
+                    format: uint64
                 reward:
                     type: string
                 rewardAt:
-                    type: string
-        GetBoxOpenEventReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetBoxOpenEventReply:
             type: object
             properties: {}
-        GetBoxOpenReply:
+        api.requestEth.v1.GetBoxOpenReply:
             type: object
             properties:
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetBoxOpenReply_List'
-        GetBoxOpenReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetBoxOpenReply_List'
+        api.requestEth.v1.GetBoxOpenReply_List:
             type: object
             properties:
                 tokenId:
@@ -1455,43 +1245,48 @@ components:
                 price:
                     type: string
                 openedAt:
-                    type: string
+                    type: integer
+                    format: uint64
                 mintAt:
-                    type: string
+                    type: integer
+                    format: uint64
                 reward:
                     type: string
                 rewardAt:
-                    type: string
-        GetBoxRewardEventReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetBoxRewardEventReply:
             type: object
             properties: {}
-        GetBoxTransferEventReply:
+        api.requestEth.v1.GetBoxTransferEventReply:
             type: object
             properties: {}
-        GetBoxUnListEventReply:
+        api.requestEth.v1.GetBoxUnListEventReply:
             type: object
             properties: {}
-        GetBuyAICATByOrderIdReply:
+        api.requestEth.v1.GetBuyAICATByOrderIdReply:
             type: object
             properties:
                 amount:
                     type: string
-        GetBuyBoxListReply:
+        api.requestEth.v1.GetBuyBoxListReply:
             type: object
             properties:
                 count:
-                    type: string
+                    type: integer
+                    format: uint64
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetBuyBoxListReply_List'
-        GetBuyBoxListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetBuyBoxListReply_List'
+        api.requestEth.v1.GetBuyBoxListReply_List:
             type: object
             properties:
                 user:
                     type: string
                 tokenId:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdt:
                     type: number
                     format: double
@@ -1502,29 +1297,31 @@ components:
                     type: number
                     format: double
                 blockTime:
-                    type: string
-        GetBuyByOrderIdReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetBuyByOrderIdReply:
             type: object
             properties:
                 usdtArray:
                     type: string
                 catArray:
                     type: string
-        GetBuyEventReply:
+        api.requestEth.v1.GetBuyEventReply:
             type: object
             properties: {}
-        GetBuyListReply:
+        api.requestEth.v1.GetBuyListReply:
             type: object
             properties:
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetBuyListReply_List'
-        GetBuyListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetBuyListReply_List'
+        api.requestEth.v1.GetBuyListReply_List:
             type: object
             properties:
                 blockTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 price:
                     type: number
                     format: double
@@ -1534,30 +1331,31 @@ components:
                 ausdGrossOut:
                     type: number
                     format: double
-        GetDailyFeeReply:
+        api.requestEth.v1.GetDailyFeeReply:
             type: object
             properties:
                 ammount:
                     type: string
-        GetExchangeEventReply:
+        api.requestEth.v1.GetExchangeEventReply:
             type: object
             properties: {}
-        GetExchangeListReply:
+        api.requestEth.v1.GetExchangeListReply:
             type: object
             properties:
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetExchangeListReply_List'
-        GetExchangeListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetExchangeListReply_List'
+        api.requestEth.v1.GetExchangeListReply_List:
             type: object
             properties:
                 blockTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 price:
                     type: number
                     format: double
-        GetLpByOrderIdReply:
+        api.requestEth.v1.GetLpByOrderIdReply:
             type: object
             properties:
                 lpArray:
@@ -1566,76 +1364,86 @@ components:
                     type: string
                 lpCatArray:
                     type: string
-        GetMarketListReply:
+        api.requestEth.v1.GetMarketListReply:
             type: object
             properties:
                 count:
-                    type: string
+                    type: integer
+                    format: uint64
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetMarketListReply_List'
-        GetMarketListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetMarketListReply_List'
+        api.requestEth.v1.GetMarketListReply_List:
             type: object
             properties:
                 tokenId:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdt:
                     type: number
                     format: double
                 tier:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdtNow:
                     type: number
                     format: double
                 blockTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 listTime:
-                    type: string
+                    type: integer
+                    format: uint64
                 minter:
                     type: string
-        GetReservesReply:
+        api.requestEth.v1.GetReservesReply:
             type: object
             properties:
                 reservesOne:
                     type: string
                 reservesTwo:
                     type: string
-        GetRewardListReply:
+        api.requestEth.v1.GetRewardListReply:
             type: object
             properties:
                 count:
-                    type: string
+                    type: integer
+                    format: uint64
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetRewardListReply_List'
-        GetRewardListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetRewardListReply_List'
+        api.requestEth.v1.GetRewardListReply_List:
             type: object
             properties:
                 user:
                     type: string
                 reason:
-                    type: string
+                    type: integer
+                    format: uint64
                 amount:
                     type: number
                     format: double
                 blockTime:
-                    type: string
-        GetSellBoxListReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetSellBoxListReply:
             type: object
             properties:
                 count:
-                    type: string
+                    type: integer
+                    format: uint64
                 list:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GetSellBoxListReply_List'
-        GetSellBoxListReply_List:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetSellBoxListReply_List'
+        api.requestEth.v1.GetSellBoxListReply_List:
             type: object
             properties:
                 tokenId:
-                    type: string
+                    type: integer
+                    format: uint64
                 priceUsdt:
                     type: number
                     format: double
@@ -1646,34 +1454,27 @@ components:
                     type: number
                     format: double
                 blockTime:
-                    type: string
-        GetSellEventReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetSellEventReply:
             type: object
             properties: {}
-        GetUserLpReply:
+        api.requestEth.v1.GetUserLpReply:
             type: object
             properties:
                 lpAmount:
                     type: string
                 lpAmountTotal:
                     type: string
-        GetUserREventReply:
+        api.requestEth.v1.GetUserREventReply:
             type: object
             properties: {}
-        GoogleProtobufAny:
-            type: object
-            properties:
-                '@type':
-                    type: string
-                    description: The type of the serialized message.
-            additionalProperties: true
-            description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
-        RemoveLiquidityReply:
+        api.requestEth.v1.RemoveLiquidityReply:
             type: object
             properties:
                 res:
                     type: string
-        RemoveLiquidityRequest_SendBody:
+        api.requestEth.v1.RemoveLiquidityRequest_SendBody:
             type: object
             properties:
                 orderId:
@@ -1682,22 +1483,22 @@ components:
                     type: string
                 liquidityAmount:
                     type: string
-        SendAICATReply:
+        api.requestEth.v1.SendAICATReply:
             type: object
             properties:
                 res:
                     type: string
-        SendAICATRequest_SendBody:
+        api.requestEth.v1.SendAICATRequest_SendBody:
             type: object
             properties: {}
-        SendTransactionEthReply:
+        api.requestEth.v1.SendTransactionEthReply:
             type: object
             properties:
                 tx:
                     type: string
                 err:
                     type: string
-        SendTransactionEthRequest_SendBody:
+        api.requestEth.v1.SendTransactionEthRequest_SendBody:
             type: object
             properties:
                 privateKey:
@@ -1706,14 +1507,14 @@ components:
                     type: string
                 amount:
                     type: string
-        SendTransactionReply:
+        api.requestEth.v1.SendTransactionReply:
             type: object
             properties:
                 tx:
                     type: string
                 err:
                     type: string
-        SendTransactionRequest_SendBody:
+        api.requestEth.v1.SendTransactionRequest_SendBody:
             type: object
             properties:
                 privateKey:
@@ -1724,62 +1525,47 @@ components:
                     type: string
                 amount:
                     type: string
-        SetRewardReply:
+        api.requestEth.v1.SetRewardReply:
             type: object
             properties:
                 res:
                     type: string
-        SetRewardRequest_SendBody:
+        api.requestEth.v1.SetRewardRequest_SendBody:
             type: object
             properties:
                 tokenId:
                     type: string
                 reward:
                     type: string
-        Status:
-            type: object
-            properties:
-                code:
-                    type: integer
-                    description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
-                    format: int32
-                message:
-                    type: string
-                    description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
-                details:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/GoogleProtobufAny'
-                    description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
-            description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
-        TokenBalanceReply:
+        api.requestEth.v1.TokenBalanceReply:
             type: object
             properties:
                 balance:
                     type: string
                 err:
                     type: string
-        TransactionReply:
+        api.requestEth.v1.TransactionReply:
             type: object
             properties:
                 status:
-                    type: string
-        UpdateBoxReply:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.UpdateBoxReply:
             type: object
             properties: {}
-        VerifySigReply:
+        api.requestEth.v1.VerifySigReply:
             type: object
             properties:
                 res:
                     type: boolean
                 address:
                     type: string
-        WithdrawAICATReply:
+        api.requestEth.v1.WithdrawAICATReply:
             type: object
             properties:
                 res:
                     type: string
-        WithdrawAICATRequest_SendBody:
+        api.requestEth.v1.WithdrawAICATRequest_SendBody:
             type: object
             properties:
                 token:

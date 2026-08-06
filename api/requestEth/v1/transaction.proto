@@ -289,6 +289,42 @@ service Transaction {
     };
   }
 
+  rpc GetUserBoundEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_bound_event"
+    };
+  }
+
+  rpc RecoverUserBoundEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/recover_user_bound_event"
+    };
+  }
+
+  rpc GetUserStakeChangedEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_stake_changed_event"
+    };
+  }
+
+  rpc GetUserExtraChangedEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_extra_changed_event"
+    };
+  }
+
+  rpc GetStakingRewardEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_staking_reward_event"
+    };
+  }
+
+  rpc RecoverPerformanceEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/recover_performance_event"
+    };
+  }
+
   rpc GetExchangeList (GetExchangeListRequest) returns (GetExchangeListReply) {
     option (google.api.http) = {
       get: "/api/get_exchange_list"
