@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"requestEth/internal/conf"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -33,14 +35,21 @@ import (
 
 type TransactionService struct {
 	pb.UnimplementedTransactionServer
-	log *log.Helper
-	ac  *biz.AppUsecase
+	log        *log.Helper
+	ac         *biz.AppUsecase
+	bscRPCURLs []string
 }
 
-func NewTransactionService(ac *biz.AppUsecase, logger log.Logger) *TransactionService {
+func NewTransactionService(ac *biz.AppUsecase, ethConfig *conf.Eth, logger log.Logger) *TransactionService {
+	var bscRPCURL string
+	if nil != ethConfig {
+		bscRPCURL = ethConfig.GetBscUrl()
+	}
+
 	return &TransactionService{
-		ac:  ac,
-		log: log.NewHelper(logger),
+		ac:         ac,
+		log:        log.NewHelper(logger),
+		bscRPCURLs: normalizeRPCURLs(strings.Split(bscRPCURL, ",")),
 	}
 }
 
@@ -2964,8 +2973,9 @@ func (s *TransactionService) GetBindUserEvent(ctx context.Context, req *pb.GetUs
 
 func (s *TransactionService) GetUserBoundEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
 	end := time.Now().UTC().Add(55 * time.Second)
-	urls := []string{
-		strings.TrimSpace(strings.Split(os.Getenv("REQUEST_BSC_RPC_URLS"), ",")[0]),
+	urls := s.bscRPCURLs
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
 	}
 	lastRPCFailed := false
 
@@ -3089,9 +3099,9 @@ func (s *TransactionService) RecoverUserBoundEvent(ctx context.Context, req *pb.
 
 func (s *TransactionService) GetUserStakeChangedEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
 	end := time.Now().UTC().Add(55 * time.Second)
-	urls := performanceRPCURLs()
+	urls := s.bscRPCURLs
 	if 0 == len(urls) {
-		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
 	}
 	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamStake)
 	if nil != err {
@@ -3148,9 +3158,9 @@ func (s *TransactionService) GetUserStakeChangedEvent(ctx context.Context, req *
 
 func (s *TransactionService) GetUserExtraChangedEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
 	end := time.Now().UTC().Add(55 * time.Second)
-	urls := performanceRPCURLs()
+	urls := s.bscRPCURLs
 	if 0 == len(urls) {
-		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
 	}
 	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamExtra)
 	if nil != err {
@@ -3207,9 +3217,9 @@ func (s *TransactionService) GetUserExtraChangedEvent(ctx context.Context, req *
 
 func (s *TransactionService) GetStakingRewardEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
 	end := time.Now().UTC().Add(55 * time.Second)
-	urls := performanceRPCURLs()
+	urls := s.bscRPCURLs
 	if 0 == len(urls) {
-		return nil, fmt.Errorf("REQUEST_BSC_RPC_URLS 未配置")
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
 	}
 	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamReward)
 	if nil != err {
@@ -3477,8 +3487,9 @@ func (s *TransactionService) SetUser(ctx context.Context, req *pb.GetUserREventR
 }
 
 func (s *TransactionService) PQueue(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
-	urls := []string{
-		"",
+	urls := s.bscRPCURLs
+	if 0 == len(urls) {
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
 	}
 
 	contract := "0x547c95E04b4b8e6D6956acF4d0B22E8a81F79722"
@@ -6897,9 +6908,13 @@ var (
 )
 
 func performanceRPCURLs() []string {
-	urls := make([]string, 0, 4)
-	seen := make(map[string]struct{})
-	for _, url := range strings.Split(os.Getenv("REQUEST_BSC_RPC_URLS"), ",") {
+	return normalizeRPCURLs(strings.Split(os.Getenv("REQUEST_BSC_RPC_URLS"), ","))
+}
+
+func normalizeRPCURLs(values []string) []string {
+	urls := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, url := range values {
 		url = strings.TrimSpace(url)
 		if "" == url {
 			continue

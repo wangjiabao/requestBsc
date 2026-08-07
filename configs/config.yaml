@@ -14,5 +14,5 @@ data:
     read_timeout: 0.2s
     write_timeout: 0.2s
 eth:
-  bsc:
-    addr: https://data-seed-prebsc-1-s3.binance.org:8545
+  # BSC RPC 节点，多个备用节点用英文逗号分隔；私密链接只在线上手动填写。
+  bsc_url: ""

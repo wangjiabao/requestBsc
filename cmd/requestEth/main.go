@@ -71,8 +71,12 @@ func main() {
 	if err := c.Scan(&bc); err != nil {
 		panic(err)
 	}
+	var ethConfig conf.Eth
+	if err := c.Value("eth").Scan(&ethConfig); err != nil {
+		log.NewHelper(logger).Warnf("eth config load failed: %v", err)
+	}
 
-	app, cleanup, err := wireApp(bc.Server, bc.Data, logger)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, &ethConfig, logger)
 	if err != nil {
 		panic(err)
 	}
