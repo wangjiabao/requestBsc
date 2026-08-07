@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"reflect"
 	"regexp"
 	"requestEth/internal/biz"
 	"sort"
@@ -3019,6 +3020,59 @@ func (s *TransactionService) GetUserBoundEvent(ctx context.Context, req *pb.GetU
 				lastRPCFailed = true
 				continue
 			}
+			head, err := client.BlockNumber(rpcCtx)
+			if nil != err {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			if head > Confirmations {
+				safeHead := head - Confirmations
+				if last+QueryStep < safeHead {
+					from := last + 1
+					if from < DeployBlockUserV1Bound {
+						from = DeployBlockUserV1Bound
+					}
+					to := from + PerformanceRecoveryStep - 1
+					if to > safeHead {
+						to = safeHead
+					}
+					events, historyErr := FetchUserV1BoundHistoryLogs(rpcCtx, from, to)
+					client.Close()
+					cancel()
+					if nil != historyErr {
+						lastRPCFailed = true
+						continue
+					}
+					if last < DeployBlockUserV1Bound {
+						foundDeployBound := false
+						for _, event := range events {
+							if event.BlockNumber == DeployBlockUserV1Bound {
+								foundDeployBound = true
+								break
+							}
+						}
+						if !foundDeployBound {
+							return nil, fmt.Errorf("user v1 Bound deploy event is missing at block %d", DeployBlockUserV1Bound)
+						}
+					}
+					rangeEvents := make([]*biz.UserV1Bound, 0, len(events))
+					for _, event := range events {
+						rangeEvents = append(rangeEvents, &biz.UserV1Bound{
+							BlockNumber: event.BlockNumber,
+							UserAddr:    strings.ToLower(event.User.Hex()),
+							ParentAddr:  strings.ToLower(event.Parent.Hex()),
+						})
+					}
+					if historyErr = s.ac.SaveUserV1BoundRange(ctx, rangeEvents, to); nil != historyErr {
+						return nil, historyErr
+					}
+					saved = true
+					lastRPCFailed = false
+					break
+				}
+			}
 
 			events, newLast, err := PollUserV1BoundIncremental(rpcCtx, client, last)
 			client.Close()
@@ -3079,21 +3133,24 @@ func (s *TransactionService) GetUserBoundEvent(ctx context.Context, req *pb.GetU
 }
 
 func (s *TransactionService) RecoverUserBoundEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
-	events, safeHead, err := FetchUserV1BoundHistoryByReceipts(ctx)
+	events, _, err := FetchUserV1BoundHistoryByReceipts(ctx)
 	if nil != err {
 		return nil, err
 	}
 
-	history, _, err := BuildUserV1BoundHistory(events)
+	history, lastEventBlock, err := BuildUserV1BoundHistory(events)
 	if nil != err {
 		return nil, err
 	}
 
-	if err = s.ac.RebuildUserV1Bound(ctx, history, safeHead); nil != err {
+	// BscScan supplies the transaction enumeration. Its newest proven event
+	// block, not a separate RPC's current head, is the only safe checkpoint;
+	// normal polling will rescan the trailing no-event range afterwards.
+	if err = s.ac.RebuildUserV1Bound(ctx, history, lastEventBlock); nil != err {
 		return nil, err
 	}
 
-	fmt.Println("user bound历史恢复完成", len(history), safeHead)
+	fmt.Println("user bound历史恢复完成", len(history), lastEventBlock)
 	return &pb.GetUserREventReply{}, nil
 }
 
@@ -3110,6 +3167,7 @@ func (s *TransactionService) GetUserStakeChangedEvent(ctx context.Context, req *
 	if nil == progress {
 		return nil, fmt.Errorf("StakeChanged同步进度不存在，请先执行 /api/recover_performance_event")
 	}
+	blockTimeRPCURLs := normalizeRPCURLs(append(performanceRecoveryRPCURLs(), s.bscRPCURLs...))
 	lastRPCFailed := false
 
 	for end.After(time.Now().UTC()) {
@@ -3122,17 +3180,52 @@ func (s *TransactionService) GetUserStakeChangedEvent(ctx context.Context, req *
 				lastRPCFailed = true
 				continue
 			}
+			logs, historyLast, historyMode, errT := FetchPerformanceBacklogHistory(rpcCtx, client, progress.LastProcessedBlock)
+			if nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			if historyMode {
+				events, _, _, parseErr := ParseUserV1PerformanceLogs(logs)
+				if nil == parseErr {
+					parseErr = fillUserV1StakeChangedBlockTimes(rpcCtx, blockTimeRPCURLs, events)
+				}
+				client.Close()
+				cancel()
+				if nil != parseErr {
+					return nil, parseErr
+				}
+				if parseErr = s.ac.SaveUserV1StakeChangedRange(ctx, events, historyLast); nil != parseErr {
+					return nil, parseErr
+				}
+				progress.LastProcessedBlock = historyLast
+				saved = true
+				lastRPCFailed = false
+				break
+			}
 
 			events, newLast, errT := PollUserV1StakeChangedIncremental(rpcCtx, client, progress.LastProcessedBlock)
-			client.Close()
-			cancel()
 			if nil != errT {
+				client.Close()
+				cancel()
 				lastRPCFailed = true
 				continue
 			}
 			if newLast <= progress.LastProcessedBlock {
+				client.Close()
+				cancel()
 				return &pb.GetUserREventReply{}, nil
 			}
+			if errT = fillUserV1StakeChangedBlockTimes(rpcCtx, blockTimeRPCURLs, events); nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			client.Close()
+			cancel()
 			if errT = s.ac.SaveUserV1StakeChangedRange(ctx, events, newLast); nil != errT {
 				fmt.Println("StakeChanged数据写入失败，当前分段已回滚", errT)
 				return nil, errT
@@ -3180,6 +3273,28 @@ func (s *TransactionService) GetUserExtraChangedEvent(ctx context.Context, req *
 				cancel()
 				lastRPCFailed = true
 				continue
+			}
+			logs, historyLast, historyMode, errT := FetchPerformanceBacklogHistory(rpcCtx, client, progress.LastProcessedBlock)
+			if nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			if historyMode {
+				_, events, _, parseErr := ParseUserV1PerformanceLogs(logs)
+				client.Close()
+				cancel()
+				if nil != parseErr {
+					return nil, parseErr
+				}
+				if parseErr = s.ac.SaveUserV1ExtraChangedRange(ctx, events, historyLast); nil != parseErr {
+					return nil, parseErr
+				}
+				progress.LastProcessedBlock = historyLast
+				saved = true
+				lastRPCFailed = false
+				break
 			}
 
 			events, newLast, errT := PollUserV1ExtraChangedIncremental(rpcCtx, client, progress.LastProcessedBlock)
@@ -3239,6 +3354,41 @@ func (s *TransactionService) GetStakingRewardEvent(ctx context.Context, req *pb.
 				cancel()
 				lastRPCFailed = true
 				continue
+			}
+			logs, historyLast, historyMode, errT := FetchPerformanceBacklogHistory(rpcCtx, client, progress.LastProcessedBlock)
+			if nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			if historyMode {
+				_, _, events, parseErr := ParseUserV1PerformanceLogs(logs)
+				if nil != parseErr {
+					client.Close()
+					cancel()
+					return nil, parseErr
+				}
+				levelUsers, parseErr := s.ac.GetStakingV1LineRewardUsers(ctx, events)
+				if nil != parseErr {
+					client.Close()
+					cancel()
+					return nil, parseErr
+				}
+				levelRewards, parseErr := FetchStakingV1LevelRewards(rpcCtx, url, levelUsers, 0)
+				client.Close()
+				cancel()
+				if nil != parseErr {
+					lastRPCFailed = true
+					continue
+				}
+				if parseErr = s.ac.SaveStakingV1RewardRange(ctx, events, levelRewards, historyLast); nil != parseErr {
+					return nil, parseErr
+				}
+				progress.LastProcessedBlock = historyLast
+				saved = true
+				lastRPCFailed = false
+				break
 			}
 
 			events, newLast, errT := PollStakingV1RewardIncremental(rpcCtx, client, progress.LastProcessedBlock)
@@ -3357,6 +3507,773 @@ func (s *TransactionService) RecoverPerformanceEvent(ctx context.Context, req *p
 
 	fmt.Println("业绩历史恢复完成", safeHead, "用户", len(users))
 	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) GetUserOverview(ctx context.Context, req *pb.GetUserOverviewRequest) (*pb.GetUserOverviewReply, error) {
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	now := time.Now().In(shanghai)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, shanghai)
+	yesterdayStart := uint64(today.AddDate(0, 0, -1).Unix())
+	todayStart := uint64(today.Unix())
+	tomorrowStart := uint64(today.AddDate(0, 0, 1).Unix())
+
+	overview, err := s.ac.GetUserV1Overview(ctx, yesterdayStart, todayStart, tomorrowStart)
+	if nil != err {
+		return nil, err
+	}
+	return &pb.GetUserOverviewReply{
+		RegisteredUserCount:               overview.RegisteredUserCount,
+		HistoricalInvestorCount:           overview.HistoricalInvestorCount,
+		CurrentInvestorCount:              overview.CurrentInvestorCount,
+		CurrentAmountGte10000UserCount:    overview.CurrentAmountGTE10000UserCount,
+		HistoricalAmountGte10000UserCount: overview.HistoricalAmountGTE10000UserCount,
+		InvestmentCountGt2UserCount:       overview.InvestmentCountGT2UserCount,
+		TodayInvestmentAmount:             overview.TodayInvestmentAmount,
+		TodayInvestmentOrderCount:         overview.TodayInvestmentOrderCount,
+		YesterdayInvestmentAmount:         overview.YesterdayInvestmentAmount,
+		YesterdayInvestmentOrderCount:     overview.YesterdayInvestmentOrderCount,
+		TodayReinvestmentAmount:           overview.TodayReinvestmentAmount,
+	}, nil
+}
+
+var userListAmountPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,18})?$`)
+
+type userListOptions struct {
+	Page              uint64
+	PageSize          uint64
+	MinAmount         string
+	MinChildrenAmount string
+	OrderBy           string
+	Order             string
+	Address           string
+	UserID            uint64
+}
+
+func normalizeUserListAmount(value, field string) (string, error) {
+	value = strings.TrimSpace(value)
+	if "" == value {
+		return "", nil
+	}
+	if !userListAmountPattern.MatchString(value) {
+		return "", fmt.Errorf("%s 必须是非负数，且最多 18 位小数", field)
+	}
+	parts := strings.SplitN(value, ".", 2)
+	integerPart := strings.TrimLeft(parts[0], "0")
+	if "" == integerPart {
+		integerPart = "0"
+	}
+	if 47 < len(integerPart) {
+		return "", fmt.Errorf("%s 整数部分最多 47 位", field)
+	}
+	return value, nil
+}
+
+func normalizeUserListRequest(req *pb.GetUserListRequest) (*userListOptions, error) {
+	options := &userListOptions{Page: req.Page, PageSize: req.PageSize, UserID: req.UserId}
+	if 0 == options.Page {
+		options.Page = 1
+	}
+	if 100000000 < options.Page {
+		return nil, fmt.Errorf("page 不能超过 100000000")
+	}
+	if 0 == options.PageSize {
+		options.PageSize = 20
+	}
+	if 100 < options.PageSize {
+		options.PageSize = 100
+	}
+
+	var err error
+	options.MinAmount, err = normalizeUserListAmount(req.MinAmount, "minAmount")
+	if nil != err {
+		return nil, err
+	}
+	options.MinChildrenAmount, err = normalizeUserListAmount(req.MinChildrenAmount, "minChildrenAmount")
+	if nil != err {
+		return nil, err
+	}
+
+	options.OrderBy = strings.ToLower(strings.TrimSpace(req.OrderBy))
+	switch options.OrderBy {
+	case "", "id":
+		options.OrderBy = "id"
+	case "amount":
+	case "amount_history", "amounthistory":
+		options.OrderBy = "amount_history"
+	case "children_amount", "childrenamount":
+		options.OrderBy = "children_amount"
+	default:
+		return nil, fmt.Errorf("orderBy 只能是 id、amount、amount_history 或 children_amount")
+	}
+
+	options.Order = strings.ToLower(strings.TrimSpace(req.Order))
+	if "" == options.Order {
+		options.Order = "desc"
+	}
+	if "asc" != options.Order && "desc" != options.Order {
+		return nil, fmt.Errorf("order 只能是 asc 或 desc")
+	}
+
+	options.Address = strings.TrimSpace(req.Address)
+	if "" != options.Address {
+		if !common.IsHexAddress(options.Address) {
+			return nil, fmt.Errorf("address 不是有效的 BSC 地址")
+		}
+		options.Address = strings.ToLower(common.HexToAddress(options.Address).Hex())
+	}
+	return options, nil
+}
+
+func (s *TransactionService) GetUserList(ctx context.Context, req *pb.GetUserListRequest) (*pb.GetUserListReply, error) {
+	options, err := normalizeUserListRequest(req)
+	if nil != err {
+		return nil, err
+	}
+	rows, total, err := s.ac.GetUserV1BoundPage(
+		ctx, options.Page, options.PageSize, options.MinAmount, options.MinChildrenAmount,
+		options.OrderBy, options.Order, options.Address, options.UserID,
+	)
+	if nil != err {
+		return nil, err
+	}
+
+	reply := &pb.GetUserListReply{Total: total, Page: options.Page, PageSize: options.PageSize, List: make([]*pb.GetUserListReply_User, 0, len(rows))}
+	for _, row := range rows {
+		createdAt := uint64(0)
+		updatedAt := uint64(0)
+		if !row.CreatedAt.IsZero() {
+			createdAt = uint64(row.CreatedAt.Unix())
+		}
+		if !row.UpdatedAt.IsZero() {
+			updatedAt = uint64(row.UpdatedAt.Unix())
+		}
+		reply.List = append(reply.List, &pb.GetUserListReply_User{
+			Id: row.ID, BlockNumber: row.BlockNumber, UserAddr: row.UserAddr, ParentAddr: row.ParentAddr,
+			RecommendCode: row.RecommendCode, Amount: row.Amount, AmountHistory: row.AmountHistory,
+			InvestmentCount: row.InvestmentCount, ChildrenAmount: row.ChildrenAmount,
+			ChildrenAmountHistory: row.ChildrenAmountHistory, ChildrenAmountExtra: row.ChildrenAmountExtra,
+			RewardRecommendAmount: row.RewardRecommendAmount, RewardRecommendPay: row.RewardRecommendPay,
+			RewardRecommendStoreAmount: row.RewardRecommendStoreAmount, RewardRecommendFee: row.RewardRecommendFee,
+			RewardRecommendTeamUAmount:        row.RewardRecommendTeamUAmount,
+			RewardRecommendClaimedTeamUNet:    row.RewardRecommendClaimedTeamUNet,
+			RewardRecommendClaimedTeamUAmount: row.RewardRecommendClaimedTeamUAmount,
+			RewardRecommendClaimedTeamUFee:    row.RewardRecommendClaimedTeamUFee,
+			RewardRecommendExpired:            row.RewardRecommendExpired, LineU: row.LineU, LineCoinU: row.LineCoinU,
+			LineCoin: row.LineCoin, LineFee: row.LineFee, LevelReward: row.LevelReward,
+			CreatedAt: createdAt, UpdatedAt: updatedAt,
+		})
+	}
+	return reply, nil
+}
+
+type rpcBlockTime struct {
+	Number    hexutil.Uint64 `json:"number"`
+	Timestamp hexutil.Uint64 `json:"timestamp"`
+}
+
+func fetchBlockTimesFromRPC(ctx context.Context, url string, blockNumbers []uint64) (map[uint64]uint64, error) {
+	client, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer client.Close()
+
+	blocks := make([]*rpcBlockTime, len(blockNumbers))
+	batch := make([]rpc.BatchElem, len(blockNumbers))
+	for i, blockNumber := range blockNumbers {
+		blocks[i] = &rpcBlockTime{}
+		batch[i] = rpc.BatchElem{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{hexutil.EncodeUint64(blockNumber), false},
+			Result: blocks[i],
+		}
+	}
+	if err = client.BatchCallContext(ctx, batch); nil != err {
+		return nil, err
+	}
+
+	result := make(map[uint64]uint64, len(blockNumbers))
+	for i, elem := range batch {
+		if nil != elem.Error {
+			return nil, fmt.Errorf("block %d: %w", blockNumbers[i], elem.Error)
+		}
+		if uint64(blocks[i].Number) != blockNumbers[i] || 0 == uint64(blocks[i].Timestamp) {
+			return nil, fmt.Errorf("block %d header is incomplete", blockNumbers[i])
+		}
+		result[blockNumbers[i]] = uint64(blocks[i].Timestamp)
+	}
+	return result, nil
+}
+
+func (s *TransactionService) RecoverUserInvestmentData(ctx context.Context, req *pb.GetUserREventRequest) (*pb.RecoverUserInvestmentDataReply, error) {
+	if 0 == len(s.bscRPCURLs) {
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
+	}
+	blockTimeRPCURLs := normalizeRPCURLs(append(performanceRecoveryRPCURLs(), s.bscRPCURLs...))
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamStake)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		return nil, fmt.Errorf("StakeChanged 同步进度不存在，请先完成 /api/recover_performance_event")
+	}
+
+	userCount, orderCount, err := s.ac.RepairUserV1InvestmentData(ctx)
+	if nil != err {
+		return nil, err
+	}
+
+	fromBlock := uint64(0)
+	const recentBlockWindow uint64 = 500000
+	if recentBlockWindow < progress.LastProcessedBlock {
+		fromBlock = progress.LastProcessedBlock - recentBlockWindow
+	}
+
+	end := time.Now().UTC().Add(50 * time.Second)
+	repairedBlockCount := uint64(0)
+	for end.After(time.Now().UTC().Add(5 * time.Second)) {
+		blockNumbers, errT := s.ac.GetUserV1StakeChangedBlocksWithoutTime(ctx, fromBlock, 25)
+		if nil != errT {
+			return nil, errT
+		}
+		if 0 == len(blockNumbers) {
+			break
+		}
+
+		var blockTimes map[uint64]uint64
+		var lastErr error
+		for i, url := range blockTimeRPCURLs {
+			rpcCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			blockTimes, lastErr = fetchBlockTimesFromRPC(rpcCtx, url, blockNumbers)
+			cancel()
+			if nil == lastErr {
+				break
+			}
+			fmt.Println("投资事件时间修复节点请求失败", i+1)
+		}
+		if nil != lastErr {
+			return nil, fmt.Errorf("投资事件链上时间修复失败，请检查 configs 中的节点后重试")
+		}
+		if errT = s.ac.SaveUserV1StakeChangedBlockTimes(ctx, blockTimes); nil != errT {
+			return nil, errT
+		}
+		repairedBlockCount += uint64(len(blockTimes))
+	}
+
+	remainingBlockCount, err := s.ac.CountUserV1StakeChangedBlocksWithoutTime(ctx, fromBlock)
+	if nil != err {
+		return nil, err
+	}
+	finished := 0 == remainingBlockCount
+	fmt.Println("投资数据修复进度", "本轮区块", repairedBlockCount, "剩余区块", remainingBlockCount, "用户", userCount, "订单", orderCount)
+	return &pb.RecoverUserInvestmentDataReply{
+		RepairedBlockCount:   repairedBlockCount,
+		InvestmentUserCount:  userCount,
+		InvestmentOrderCount: orderCount,
+		RemainingBlockCount:  remainingBlockCount,
+		Finished:             finished,
+	}, nil
+}
+
+func (s *TransactionService) GetStakingOrderEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
+	end := time.Now().UTC().Add(55 * time.Second)
+	if 0 == len(s.bscRPCURLs) {
+		return nil, fmt.Errorf("configs 中 eth.bsc_url 未配置")
+	}
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamOrder)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		return nil, fmt.Errorf("订单同步断点不存在，请先反复执行 /api/recover_staking_order_event 直到 finished=true")
+	}
+
+	lastRPCFailed := false
+	for end.After(time.Now().UTC()) {
+		saved := false
+		for _, url := range s.bscRPCURLs {
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, errT := ethclient.DialContext(rpcCtx, url)
+			if nil != errT {
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			headBeforePoll, errT := client.BlockNumber(rpcCtx)
+			if nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+			if headBeforePoll > Confirmations {
+				safeHeadBeforePoll := headBeforePoll - Confirmations
+				if progress.LastProcessedBlock+QueryStep < safeHeadBeforePoll {
+					// Some full nodes silently return an empty log list outside
+					// their retention window. A sizeable backlog must therefore
+					// use the same proven historical source as initial recovery.
+					from := progress.LastProcessedBlock + 1
+					to := from + PerformanceRecoveryStep - 1
+					if to > safeHeadBeforePoll {
+						to = safeHeadBeforePoll
+					}
+					logs, historyErr := FetchStakingV1OrderHistoryLogs(rpcCtx, from, to)
+					if nil != historyErr {
+						client.Close()
+						cancel()
+						lastRPCFailed = true
+						continue
+					}
+					events, refreshUsers, historyErr := ParseStakingV1OrderLogs(logs)
+					client.Close()
+					cancel()
+					if nil != historyErr {
+						return nil, historyErr
+					}
+					if historyErr = s.ac.SaveStakingV1OrderRange(ctx, events, refreshUsers, to); nil != historyErr {
+						return nil, historyErr
+					}
+					progress.LastProcessedBlock = to
+					saved = true
+					lastRPCFailed = false
+					break
+				}
+			}
+
+			events, refreshUsers, newLast, errT := PollStakingV1OrderIncremental(rpcCtx, client, progress.LastProcessedBlock)
+			if nil != errT {
+				client.Close()
+				cancel()
+				lastRPCFailed = true
+				continue
+			}
+
+			if newLast > progress.LastProcessedBlock {
+				if errT = s.ac.SaveStakingV1OrderRange(ctx, events, refreshUsers, newLast); nil != errT {
+					client.Close()
+					cancel()
+					fmt.Println("订单数据写入失败，当前分段已回滚", errT)
+					return nil, errT
+				}
+				progress.LastProcessedBlock = newLast
+				saved = true
+			}
+
+			// During a long backlog only event-derived state is written. Reading
+			// the view at each old 2,000-block checkpoint would fail once a full
+			// node has pruned that historical state. When the checkpoint is near
+			// the current safe head, refresh dirty users from that recent block.
+			head, errT := client.BlockNumber(rpcCtx)
+			nearSafeHead := false
+			if nil == errT && head > Confirmations {
+				safeHead := head - Confirmations
+				nearSafeHead = progress.LastProcessedBlock >= safeHead || safeHead-progress.LastProcessedBlock <= 128
+			}
+			if nearSafeHead {
+				dirtyUsers, errT := s.ac.GetStakingV1OrderUsersNeedingSnapshot(ctx, 10)
+				if nil != errT {
+					client.Close()
+					cancel()
+					return nil, errT
+				}
+				if 0 == len(dirtyUsers) {
+					nextOrderID, nextErr := FetchStakingV1NextOrderID(rpcCtx, client, progress.LastProcessedBlock)
+					if nil != nextErr {
+						client.Close()
+						cancel()
+						lastRPCFailed = true
+						continue
+					}
+					if nextErr = s.ac.ValidateStakingV1OrderIntegrity(ctx, nextOrderID.String()); nil != nextErr {
+						client.Close()
+						cancel()
+						return nil, nextErr
+					}
+					client.Close()
+					cancel()
+					return &pb.GetUserREventReply{}, nil
+				}
+				beforeCount, errT := s.ac.CountStakingV1OrderUsersNeedingSnapshot(ctx)
+				if nil != errT {
+					client.Close()
+					cancel()
+					return nil, errT
+				}
+				snapshots, errT := FetchStakingV1OrderSnapshots(rpcCtx, client, dirtyUsers, progress.LastProcessedBlock)
+				if nil != errT {
+					client.Close()
+					cancel()
+					lastRPCFailed = true
+					continue
+				}
+				if errT = s.ac.ApplyStakingV1OrderSnapshots(ctx, snapshots); nil != errT {
+					client.Close()
+					cancel()
+					return nil, errT
+				}
+				afterCount, errT := s.ac.CountStakingV1OrderUsersNeedingSnapshot(ctx)
+				if nil != errT {
+					client.Close()
+					cancel()
+					return nil, errT
+				}
+				if afterCount >= beforeCount {
+					client.Close()
+					cancel()
+					return nil, fmt.Errorf("订单快照未覆盖事件中的活跃订单，已停止推进")
+				}
+				saved = true
+			}
+
+			client.Close()
+			cancel()
+			lastRPCFailed = false
+			break
+		}
+		if !saved {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Second):
+			}
+		}
+	}
+	if lastRPCFailed {
+		fmt.Println("订单同步本轮 RPC 请求未完成，下次从数据库断点继续")
+	}
+	return &pb.GetUserREventReply{}, nil
+}
+
+func (s *TransactionService) RecoverStakingOrderEvent(ctx context.Context, req *pb.GetUserREventRequest) (*pb.RecoverStakingOrderEventReply, error) {
+	// A normal-stream checkpoint is written only after event replay and every
+	// active-user snapshot have completed. Once present, recovery is a no-op.
+	normalProgress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamOrder)
+	if nil != err {
+		return nil, err
+	}
+	if nil != normalProgress {
+		return &pb.RecoverStakingOrderEventReply{
+			LastProcessedBlock: normalProgress.LastProcessedBlock,
+			SafeHead:           normalProgress.LastProcessedBlock,
+			EventFinished:      true,
+			Finished:           true,
+		}, nil
+	}
+
+	progress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamOrderRecovery)
+	if nil != err {
+		return nil, err
+	}
+	if nil == progress {
+		if err = s.ac.RecoverStakingV1OrderRange(ctx, nil, nil, DeployBlockStakingV1-1); nil != err {
+			return nil, err
+		}
+		progress = &biz.UserV1PerformanceSyncProgress{LastProcessedBlock: DeployBlockStakingV1 - 1}
+	}
+
+	targetProgress, err := s.ac.GetUserV1PerformanceSyncProgress(ctx, biz.UserV1PerformanceStreamOrderTarget)
+	if nil != err {
+		return nil, err
+	}
+	safeHead := uint64(0)
+	if nil != targetProgress {
+		safeHead = targetProgress.LastProcessedBlock
+	} else {
+		safeHead, err = FetchPerformanceRecoverySafeHead(ctx)
+		if nil != err {
+			return nil, fmt.Errorf("订单历史恢复无法获取 BSC 安全区块高度")
+		}
+		if safeHead < progress.LastProcessedBlock {
+			safeHead = progress.LastProcessedBlock
+		}
+		if err = s.ac.SaveStakingV1OrderRecoveryTarget(ctx, safeHead); nil != err {
+			return nil, err
+		}
+	}
+	// A BSC full node may prune historical contract state after only a short
+	// window even though historical logs remain available. Once event replay
+	// reaches the previous target, roll the target to this configured node's
+	// recent safe head. The small gap is replayed first and only users touched
+	// by those new events are marked dirty again, so snapshots completed by
+	// unaffected users remain valid and recovery converges without an archive
+	// node.
+	if progress.LastProcessedBlock >= safeHead {
+		rollingSafeHead, headErr := FetchConfiguredStakingOrderSafeHead(ctx, s.bscRPCURLs)
+		if nil != headErr {
+			return nil, fmt.Errorf("订单恢复无法读取 configs 中 BSC 节点的最新安全区块")
+		}
+		if rollingSafeHead > safeHead {
+			safeHead = rollingSafeHead
+			if err = s.ac.SaveStakingV1OrderRecoveryTarget(ctx, safeHead); nil != err {
+				return nil, err
+			}
+		}
+	}
+	end := time.Now().UTC().Add(50 * time.Second)
+	recoveryStep := StakingOrderRecoveryStep
+	for progress.LastProcessedBlock < safeHead && end.After(time.Now().UTC().Add(8*time.Second)) {
+		from := progress.LastProcessedBlock + 1
+		var (
+			to   uint64
+			logs []types.Log
+			errT error
+		)
+		for {
+			to = from + recoveryStep - 1
+			if to > safeHead {
+				to = safeHead
+			}
+			recoveryCtx, cancel := context.WithDeadline(ctx, end)
+			logs, errT = FetchStakingV1OrderHistoryLogs(recoveryCtx, from, to)
+			cancel()
+			if nil == errT || recoveryStep <= PerformanceRecoveryStep {
+				break
+			}
+			recoveryStep = PerformanceRecoveryStep
+		}
+		if nil != errT {
+			// A successful request may consume almost its whole 50-second work
+			// window after committing several ranges. If the next uncommitted
+			// range merely runs into that deadline, return the saved checkpoint;
+			// the next GET will retry exactly that range.
+			if !end.After(time.Now().UTC().Add(2 * time.Second)) {
+				break
+			}
+			fmt.Println("订单历史双节点校验失败", errT)
+			return nil, fmt.Errorf("订单历史事件拉取失败，请稍后从数据库断点重试")
+		}
+		events, refreshUsers, errT := ParseStakingV1OrderLogs(logs)
+		if nil != errT {
+			return nil, errT
+		}
+		if errT = s.ac.RecoverStakingV1OrderRange(ctx, events, refreshUsers, to); nil != errT {
+			return nil, errT
+		}
+		progress.LastProcessedBlock = to
+		fmt.Println("订单历史事件恢复进度", to, safeHead, "事件", len(events))
+	}
+
+	eventFinished := progress.LastProcessedBlock >= safeHead
+	remainingSnapshotUsers, err := s.ac.CountStakingV1OrderUsersNeedingSnapshot(ctx)
+	if nil != err {
+		return nil, err
+	}
+	if !eventFinished {
+		return &pb.RecoverStakingOrderEventReply{
+			LastProcessedBlock:         progress.LastProcessedBlock,
+			SafeHead:                   safeHead,
+			EventFinished:              false,
+			RemainingSnapshotUserCount: remainingSnapshotUsers,
+			Finished:                   false,
+		}, nil
+	}
+
+	// Exited orders no longer exist in contract storage. Rebuild their absolute
+	// linePaid from the persisted LineClaimed history before snapshotting the
+	// still-active orders.
+	if _, err = s.ac.RepairStakingV1OrderLinePaid(ctx); nil != err {
+		return nil, err
+	}
+	for 0 < remainingSnapshotUsers && end.After(time.Now().UTC().Add(8*time.Second)) {
+		users, errT := s.ac.GetStakingV1OrderUsersNeedingSnapshot(ctx, 25)
+		if nil != errT {
+			return nil, errT
+		}
+		if 0 == len(users) {
+			break
+		}
+
+		var snapshots []*biz.StakingV1OrderSnapshot
+		fetched := false
+		for _, url := range s.bscRPCURLs {
+			rpcCtx, cancel := context.WithDeadline(ctx, end)
+			client, errT := ethclient.DialContext(rpcCtx, url)
+			if nil == errT {
+				snapshots, errT = FetchStakingV1OrderSnapshots(rpcCtx, client, users, safeHead)
+				client.Close()
+			}
+			cancel()
+			if nil == errT {
+				fetched = true
+				break
+			}
+			errorText := errT.Error()
+			for _, configuredURL := range s.bscRPCURLs {
+				errorText = strings.ReplaceAll(errorText, configuredURL, "[RPC]")
+			}
+			fmt.Println("订单快照节点请求失败", errorText)
+		}
+		if !fetched {
+			if !end.After(time.Now().UTC().Add(2 * time.Second)) {
+				break
+			}
+			return nil, fmt.Errorf("订单当前状态快照读取失败，请检查 configs 中的 BSC 节点后重试")
+		}
+		if errT = s.ac.ApplyStakingV1OrderSnapshots(ctx, snapshots); nil != errT {
+			return nil, errT
+		}
+		previousRemaining := remainingSnapshotUsers
+		remainingSnapshotUsers, err = s.ac.CountStakingV1OrderUsersNeedingSnapshot(ctx)
+		if nil != err {
+			return nil, err
+		}
+		if remainingSnapshotUsers >= previousRemaining {
+			return nil, fmt.Errorf("订单快照未覆盖事件恢复得到的活跃订单，已停止推进以避免数据不完整")
+		}
+		fmt.Println("订单当前状态快照恢复进度", "剩余用户", remainingSnapshotUsers)
+	}
+
+	finished := 0 == remainingSnapshotUsers
+	if finished {
+		var expectedNextOrderID *big.Int
+		for _, url := range s.bscRPCURLs {
+			rpcCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			client, nextErr := ethclient.DialContext(rpcCtx, url)
+			if nil == nextErr {
+				expectedNextOrderID, nextErr = FetchStakingV1NextOrderID(rpcCtx, client, safeHead)
+				client.Close()
+			}
+			cancel()
+			if nil == nextErr {
+				break
+			}
+		}
+		if nil == expectedNextOrderID {
+			return nil, fmt.Errorf("订单完整性校验无法读取 nextOrderId，请检查 configs 中的 BSC 节点后重试")
+		}
+		if err = s.ac.ValidateStakingV1OrderIntegrity(ctx, expectedNextOrderID.String()); nil != err {
+			return nil, err
+		}
+		if err = s.ac.CompleteStakingV1OrderRecovery(ctx, safeHead); nil != err {
+			return nil, err
+		}
+		progress.LastProcessedBlock = safeHead
+	}
+	return &pb.RecoverStakingOrderEventReply{
+		LastProcessedBlock:         progress.LastProcessedBlock,
+		SafeHead:                   safeHead,
+		EventFinished:              true,
+		RemainingSnapshotUserCount: remainingSnapshotUsers,
+		Finished:                   finished,
+	}, nil
+}
+
+type stakingOrderListOptions struct {
+	Page     uint64
+	PageSize uint64
+	UserID   uint64
+	Address  string
+	Status   uint8
+	OrderBy  string
+	Order    string
+}
+
+func normalizeStakingOrderListRequest(req *pb.GetStakingOrderListRequest) (*stakingOrderListOptions, error) {
+	options := &stakingOrderListOptions{Page: req.Page, PageSize: req.PageSize, UserID: req.UserId, Status: uint8(req.Status)}
+	if 0 == options.Page {
+		options.Page = 1
+	}
+	if 100000000 < options.Page {
+		return nil, fmt.Errorf("page 不能超过 100000000")
+	}
+	if 0 == options.PageSize {
+		options.PageSize = 20
+	}
+	if 100 < options.PageSize {
+		options.PageSize = 100
+	}
+	if 3 < req.Status {
+		return nil, fmt.Errorf("status 只能是 0、1、2 或 3")
+	}
+	options.Address = strings.TrimSpace(req.Address)
+	if "" != options.Address {
+		if !common.IsHexAddress(options.Address) {
+			return nil, fmt.Errorf("address 不是有效的 BSC 地址")
+		}
+		options.Address = strings.ToLower(common.HexToAddress(options.Address).Hex())
+	}
+	options.OrderBy = strings.ToLower(strings.TrimSpace(req.OrderBy))
+	switch options.OrderBy {
+	case "", "order_id", "orderid":
+		options.OrderBy = "order_id"
+	case "id", "amount", "cap", "used", "remaining", "created_time", "start_time", "updated_at":
+	default:
+		return nil, fmt.Errorf("orderBy 只能是 id、order_id、amount、cap、used、remaining、created_time、start_time 或 updated_at")
+	}
+	options.Order = strings.ToLower(strings.TrimSpace(req.Order))
+	if "" == options.Order {
+		options.Order = "desc"
+	}
+	if "asc" != options.Order && "desc" != options.Order {
+		return nil, fmt.Errorf("order 只能是 asc 或 desc")
+	}
+	return options, nil
+}
+
+func stakingOrderUint64(value, field string) (uint64, error) {
+	number, ok := new(big.Int).SetString(strings.TrimSpace(value), 10)
+	if !ok || number.Sign() < 0 || 64 < number.BitLen() {
+		return 0, fmt.Errorf("订单的 %s 超出接口 uint64 范围", field)
+	}
+	return number.Uint64(), nil
+}
+
+func stakingOrderStatusName(status uint8) string {
+	switch status {
+	case biz.StakingV1OrderStatusQueued:
+		return "排队中"
+	case biz.StakingV1OrderStatusRunning:
+		return "进行中"
+	case biz.StakingV1OrderStatusExited:
+		return "已结束"
+	default:
+		return "未知"
+	}
+}
+
+func (s *TransactionService) GetStakingOrderList(ctx context.Context, req *pb.GetStakingOrderListRequest) (*pb.GetStakingOrderListReply, error) {
+	options, err := normalizeStakingOrderListRequest(req)
+	if nil != err {
+		return nil, err
+	}
+	rows, total, err := s.ac.GetStakingV1OrderPage(ctx, &biz.StakingV1OrderQuery{
+		Page: options.Page, PageSize: options.PageSize, UserID: options.UserID, Address: options.Address,
+		Status: options.Status, OrderBy: options.OrderBy, Order: options.Order,
+	})
+	if nil != err {
+		return nil, err
+	}
+	reply := &pb.GetStakingOrderListReply{Total: total, Page: options.Page, PageSize: options.PageSize, List: make([]*pb.GetStakingOrderListReply_Order, 0, len(rows))}
+	for _, row := range rows {
+		userOrderIndex, errT := stakingOrderUint64(row.UserOrderIndex, "userOrderIndex")
+		if nil != errT {
+			return nil, errT
+		}
+		planID, errT := stakingOrderUint64(row.PlanID, "planId")
+		if nil != errT {
+			return nil, errT
+		}
+		createdAt := uint64(0)
+		updatedAt := uint64(0)
+		if !row.CreatedAt.IsZero() {
+			createdAt = uint64(row.CreatedAt.Unix())
+		}
+		if !row.UpdatedAt.IsZero() {
+			updatedAt = uint64(row.UpdatedAt.Unix())
+		}
+		reply.List = append(reply.List, &pb.GetStakingOrderListReply_Order{
+			Id: row.ID, OrderId: row.OrderID, UserId: row.UserID, UserAddr: row.UserAddr, UserOrderIndex: userOrderIndex,
+			Amount: row.Amount, BaseCap: row.BaseCap, Cap: row.Cap, Used: row.Used, Remaining: row.Remaining,
+			Compensation: row.Compensation, LinePaid: row.LinePaid, LineClaimable: row.LineClaimable, PlanId: planID,
+			CreatedTime: row.CreatedTime, StartTime: row.StartTime, ClaimEffective: row.ClaimEffective,
+			DaysCount: row.DaysCount, Status: uint32(row.Status), StatusName: stakingOrderStatusName(row.Status),
+			QueueIndex: row.QueueIndex, QueueLiqU: row.QueueLiqU, QueuedAt: row.QueuedAt, QueueDone: row.QueueDone,
+			CreatedBlockNumber: row.CreatedBlock, EnteredBlockNumber: row.EnteredBlock, ExitedBlockNumber: row.ExitedBlock,
+			LastSyncedBlock: row.LastSyncedBlock, CreatedAt: createdAt, UpdatedAt: updatedAt,
+		})
+	}
+	return reply, nil
 }
 
 func (s *TransactionService) SetUser(ctx context.Context, req *pb.GetUserREventRequest) (*pb.GetUserREventReply, error) {
@@ -6432,6 +7349,106 @@ func FetchUserV1BoundByRange(ctx context.Context, client *ethclient.Client, cont
 	return res, nil
 }
 
+func fetchUserV1BoundHistoryLogsFromRPC(ctx context.Context, url string, fromBlock, toBlock uint64) ([]UserV1BoundEvent, error) {
+	client, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer client.Close()
+	var nodeHead hexutil.Uint64
+	if err = client.CallContext(ctx, &nodeHead, "eth_blockNumber"); nil != err {
+		return nil, err
+	}
+	if uint64(nodeHead) < toBlock || uint64(nodeHead)-toBlock < Confirmations {
+		return nil, fmt.Errorf("user bound history RPC head %d has not confirmed requested block %d", uint64(nodeHead), toBlock)
+	}
+	parsedABI, err := abi.JSON(strings.NewReader(userV1BoundABI))
+	if nil != err {
+		return nil, err
+	}
+	boundID := parsedABI.Events["Bound"].ID
+	filter := map[string]interface{}{
+		"fromBlock": hexutil.EncodeUint64(fromBlock),
+		"toBlock":   hexutil.EncodeUint64(toBlock),
+		"address":   strings.ToLower(UserV1BoundContract.Hex()),
+		"topics":    [][]string{{boundID.Hex()}},
+	}
+	var filterID string
+	if err = client.CallContext(ctx, &filterID, "eth_newFilter", filter); nil != err {
+		return nil, err
+	}
+	defer func() {
+		uninstallCtx, uninstallCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer uninstallCancel()
+		var removed bool
+		_ = client.CallContext(uninstallCtx, &removed, "eth_uninstallFilter", filterID)
+	}()
+	var logs []types.Log
+	if err = client.CallContext(ctx, &logs, "eth_getFilterLogs", filterID); nil != err {
+		return nil, err
+	}
+	result := make([]UserV1BoundEvent, 0, len(logs))
+	for _, lg := range logs {
+		event, parseErr := parseUserV1Bound(parsedABI, lg)
+		if nil != parseErr {
+			return nil, parseErr
+		}
+		result = append(result, event)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].BlockNumber == result[j].BlockNumber {
+			return result[i].LogIndex < result[j].LogIndex
+		}
+		return result[i].BlockNumber < result[j].BlockNumber
+	})
+	return result, nil
+}
+
+func FetchUserV1BoundHistoryLogs(ctx context.Context, fromBlock, toBlock uint64) ([]UserV1BoundEvent, error) {
+	urls := performanceRecoveryRPCURLs()
+	if len(urls) < 2 {
+		return nil, fmt.Errorf("at least two user bound history RPCs are required")
+	}
+	start := int((fromBlock / PerformanceRecoveryStep) % uint64(len(urls)))
+	type rpcResult struct {
+		events []UserV1BoundEvent
+		err    error
+	}
+	verificationCtx, verificationCancel := context.WithCancel(ctx)
+	defer verificationCancel()
+	results := make(chan rpcResult, len(urls))
+	for i := 0; i < len(urls); i++ {
+		url := urls[(start+i)%len(urls)]
+		go func(url string) {
+			rpcCtx, cancel := context.WithTimeout(verificationCtx, 20*time.Second)
+			events, err := fetchUserV1BoundHistoryLogsFromRPC(rpcCtx, url, fromBlock, toBlock)
+			cancel()
+			results <- rpcResult{events: events, err: err}
+		}(url)
+	}
+	lastErr := fmt.Errorf("history RPC results disagree")
+	verified := make([][]UserV1BoundEvent, 0, len(urls))
+	for i := 0; i < len(urls); i++ {
+		select {
+		case result := <-results:
+			if nil != result.err {
+				lastErr = result.err
+				continue
+			}
+			for _, previous := range verified {
+				if len(previous) == len(result.events) && (0 == len(result.events) || reflect.DeepEqual(previous, result.events)) {
+					return result.events, nil
+				}
+			}
+			verified = append(verified, result.events)
+			lastErr = fmt.Errorf("history RPC results disagree")
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, fmt.Errorf("user bound history [%d,%d] was not confirmed by two RPCs: %w", fromBlock, toBlock, lastErr)
+}
+
 // PollUserV1BoundIncremental：增量拉取 + latest-Confirmations
 func PollUserV1BoundIncremental(ctx context.Context, client *ethclient.Client, lastProcessedFromDB uint64) (events []UserV1BoundEvent, newLastProcessed uint64, err error) {
 	head, err := client.BlockNumber(ctx)
@@ -6892,19 +7909,27 @@ func ValidateUserV1BoundHistory(history []*biz.UserV1Bound) error {
    ========================= */
 
 const (
-	DeployBlockStakingV1    uint64 = 99857140
-	PerformanceRecoveryStep uint64 = 50000
+	DeployBlockStakingV1     uint64 = 99857140
+	PerformanceRecoveryStep  uint64 = 50000
+	StakingOrderRecoveryStep uint64 = 100000
 )
 
 var StakingV1Contract = common.HexToAddress("0x547c95E04b4b8e6D6956acF4d0B22E8a81F79722")
 
 var (
-	userV1StakeChangedTopic   = common.HexToHash("0x5c2b1af9817829e3745bfe7eb801e744beec39c89a0215f43f7304b3276f6120")
-	userV1ExtraChangedTopic   = common.HexToHash("0xa1416bb110754a8cd5905ddb97926b43030460b0be1d031aba6830300d145a65")
-	stakingV1TeamBookedTopic  = common.HexToHash("0x01dff65ae78c0348becfc40252f464a2b20d1f8dc39f0e9bf3ac159be0530271")
-	stakingV1TeamClaimedTopic = common.HexToHash("0x14ec2ddfba4ceb55e4e9ddd496f4328d615049242a5d308552b14af02df83cfc")
-	stakingV1TeamExpiredTopic = common.HexToHash("0x7511616f0998e2297cc1254ccaf6ec14b6223f54f36ec224cb7c2a6516ada922")
-	stakingV1LineClaimedTopic = common.HexToHash("0x9b323bf7a7ff7d9a2f07b56ab4f293d9a140b8e6dd6d39dbdc34788ff4e4ceaf")
+	userV1StakeChangedTopic    = common.HexToHash("0x5c2b1af9817829e3745bfe7eb801e744beec39c89a0215f43f7304b3276f6120")
+	userV1ExtraChangedTopic    = common.HexToHash("0xa1416bb110754a8cd5905ddb97926b43030460b0be1d031aba6830300d145a65")
+	stakingV1TeamBookedTopic   = common.HexToHash("0x01dff65ae78c0348becfc40252f464a2b20d1f8dc39f0e9bf3ac159be0530271")
+	stakingV1TeamClaimedTopic  = common.HexToHash("0x14ec2ddfba4ceb55e4e9ddd496f4328d615049242a5d308552b14af02df83cfc")
+	stakingV1TeamExpiredTopic  = common.HexToHash("0x7511616f0998e2297cc1254ccaf6ec14b6223f54f36ec224cb7c2a6516ada922")
+	stakingV1LineClaimedTopic  = common.HexToHash("0x9b323bf7a7ff7d9a2f07b56ab4f293d9a140b8e6dd6d39dbdc34788ff4e4ceaf")
+	stakingV1OrderCreatedTopic = common.HexToHash("0x92669f7499828c9972b3a5b6c0b107ca011f143600fd7b32517024d4a3d7ab28")
+	stakingV1OrderEnteredTopic = common.HexToHash("0x8e6880a634e5e4deb05e9fcba2112be19166e9721dd4946bc09091783c9a656f")
+	stakingV1OrderExitedTopic  = common.HexToHash("0x53441419715315a4cc233346fb370d577a21d7fdff6d5f60860f24150a199cde")
+	stakingV1OrderCapSetTopic  = common.HexToHash("0x6409fdae075f17dc54fe696f58828676d5fdec9bfa2fbb13bdc8aa5e662fd6e3")
+	stakingV1QueuedTopic       = common.HexToHash("0x33ed2ea816789b9d12d676e2ed6d81ab2cccc83a440f9a2576d15858c810bea9")
+	stakingV1QueueDoneTopic    = common.HexToHash("0x7cb6d2f0f71ff6ec5c5549e81fadd5c1f8790b9d652b4c2d1ed4817998e4f4d6")
+	stakingV1PlanSetTopic      = common.HexToHash("0x7937dab559669144f9fd03274e00046917bb79f00ab85dc4cb7da1bb0b84227d")
 )
 
 func performanceRPCURLs() []string {
@@ -6949,6 +7974,7 @@ func performanceRecoveryRPCURLs() []string {
 	appendURL("https://bsc-dataseed1.binance.org/")
 	appendURL("https://bsc-dataseed2.binance.org/")
 	appendURL("https://bsc-dataseed3.binance.org/")
+	appendURL("https://bsc-mainnet.public.blastapi.io")
 	return urls
 }
 
@@ -7006,6 +8032,34 @@ func filterPerformanceLogs(ctx context.Context, client *ethclient.Client, addres
 	return nil, lastErr
 }
 
+// FetchPerformanceBacklogHistory protects the normal cron endpoints from full
+// nodes that silently return [] for logs older than their retention window.
+// Recent ranges still use the configured node; only a backlog larger than one
+// normal QueryStep is read through the proven history recovery sources.
+func FetchPerformanceBacklogHistory(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]types.Log, uint64, bool, error) {
+	head, err := client.BlockNumber(ctx)
+	if nil != err {
+		return nil, lastProcessed, false, err
+	}
+	if head <= Confirmations {
+		return []types.Log{}, lastProcessed, false, nil
+	}
+	safeHead := head - Confirmations
+	if safeHead <= lastProcessed || safeHead-lastProcessed <= QueryStep {
+		return []types.Log{}, lastProcessed, false, nil
+	}
+	from := lastProcessed + 1
+	to := from + PerformanceRecoveryStep - 1
+	if to > safeHead {
+		to = safeHead
+	}
+	logs, err := FetchPerformanceHistoryLogs(ctx, from, to)
+	if nil != err {
+		return nil, lastProcessed, true, err
+	}
+	return logs, to, true, nil
+}
+
 func performanceIncrementalRange(ctx context.Context, client *ethclient.Client, lastProcessed uint64, deployBlock uint64) (uint64, uint64, error) {
 	head, err := client.BlockNumber(ctx)
 	if nil != err {
@@ -7039,7 +8093,60 @@ func PollUserV1StakeChangedIncremental(ctx context.Context, client *ethclient.Cl
 		return nil, lastProcessed, err
 	}
 	stakes, _, _, err := ParseUserV1PerformanceLogs(logs)
+	if nil != err {
+		return nil, lastProcessed, err
+	}
 	return stakes, to, err
+}
+
+func fillUserV1StakeChangedBlockTimes(ctx context.Context, urls []string, events []*biz.UserV1StakeChanged) error {
+	blockSet := make(map[uint64]struct{})
+	for _, event := range events {
+		blockSet[event.BlockNumber] = struct{}{}
+	}
+	if 0 == len(blockSet) {
+		return nil
+	}
+	blockNumbers := make([]uint64, 0, len(blockSet))
+	for blockNumber := range blockSet {
+		blockNumbers = append(blockNumbers, blockNumber)
+	}
+	sort.Slice(blockNumbers, func(i, j int) bool { return blockNumbers[i] < blockNumbers[j] })
+
+	blockTimes := make(map[uint64]uint64, len(blockNumbers))
+	const batchSize = 50
+	for start := 0; start < len(blockNumbers); start += batchSize {
+		end := start + batchSize
+		if end > len(blockNumbers) {
+			end = len(blockNumbers)
+		}
+		var (
+			batch   map[uint64]uint64
+			lastErr error
+		)
+		for _, url := range urls {
+			rpcCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			batch, lastErr = fetchBlockTimesFromRPC(rpcCtx, url, blockNumbers[start:end])
+			cancel()
+			if nil == lastErr {
+				break
+			}
+		}
+		if nil != lastErr {
+			return fmt.Errorf("StakeChanged区块时间批量读取失败，本分段未写入")
+		}
+		for blockNumber, blockTime := range batch {
+			blockTimes[blockNumber] = blockTime
+		}
+	}
+	for _, event := range events {
+		blockTime, ok := blockTimes[event.BlockNumber]
+		if !ok || 0 == blockTime {
+			return fmt.Errorf("StakeChanged区块 %d 缺少时间，本分段未写入", event.BlockNumber)
+		}
+		event.BlockTime = blockTime
+	}
+	return nil
 }
 
 func PollUserV1ExtraChangedIncremental(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]*biz.UserV1ExtraChanged, uint64, error) {
@@ -7068,6 +8175,198 @@ func PollStakingV1RewardIncremental(ctx context.Context, client *ethclient.Clien
 	}
 	_, _, rewards, err := ParseUserV1PerformanceLogs(logs)
 	return rewards, to, err
+}
+
+func stakingV1OrderTopics() []common.Hash {
+	return []common.Hash{
+		stakingV1PlanSetTopic,
+		stakingV1OrderCreatedTopic,
+		stakingV1OrderEnteredTopic,
+		stakingV1OrderExitedTopic,
+		stakingV1OrderCapSetTopic,
+		stakingV1QueuedTopic,
+		stakingV1QueueDoneTopic,
+		stakingV1LineClaimedTopic,
+		stakingV1TeamClaimedTopic,
+	}
+}
+
+func PollStakingV1OrderIncremental(ctx context.Context, client *ethclient.Client, lastProcessed uint64) ([]*biz.StakingV1OrderEvent, []*biz.StakingV1OrderUser, uint64, error) {
+	from, to, err := performanceIncrementalRange(ctx, client, lastProcessed, DeployBlockStakingV1)
+	if nil != err || to <= lastProcessed {
+		return []*biz.StakingV1OrderEvent{}, []*biz.StakingV1OrderUser{}, to, err
+	}
+	logs, err := filterPerformanceLogs(ctx, client, []common.Address{StakingV1Contract}, stakingV1OrderTopics(), from, to)
+	if nil != err {
+		return nil, nil, lastProcessed, err
+	}
+	events, refreshUsers, err := ParseStakingV1OrderLogs(logs)
+	if nil != err {
+		return nil, nil, lastProcessed, err
+	}
+	return events, refreshUsers, to, nil
+}
+
+var stakingV1ViewContract = common.HexToAddress("0xfc0c4a339C37634CdF83860009b4544B4ac914c2")
+
+const stakingV1ViewOrdersABI = `[{"inputs":[{"name":"a","type":"address"},{"name":"off","type":"uint256"},{"name":"lim","type":"uint256"}],"name":"orders","outputs":[{"components":[{"name":"index","type":"uint256"},{"name":"id","type":"uint256"},{"name":"account","type":"address"},{"name":"amount","type":"uint128"},{"name":"cap","type":"uint128"},{"name":"used","type":"uint128"},{"name":"linePaid","type":"uint128"},{"name":"created","type":"uint40"},{"name":"start","type":"uint40"},{"name":"claimEffective","type":"uint40"},{"name":"effectiveNow","type":"uint40"},{"name":"daysCount","type":"uint32"},{"name":"exited","type":"bool"},{"name":"capNow","type":"uint256"},{"name":"left","type":"uint256"},{"name":"comp","type":"uint256"},{"name":"lineClaimable","type":"uint256"}],"name":"out","type":"tuple[]"}],"stateMutability":"view","type":"function"}]`
+
+type stakingV1OrderView struct {
+	Index          *big.Int
+	Id             *big.Int
+	Account        common.Address
+	Amount         *big.Int
+	Cap            *big.Int
+	Used           *big.Int
+	LinePaid       *big.Int
+	Created        *big.Int
+	Start          *big.Int
+	ClaimEffective *big.Int
+	EffectiveNow   *big.Int
+	DaysCount      uint32
+	Exited         bool
+	CapNow         *big.Int
+	Left           *big.Int
+	Comp           *big.Int
+	LineClaimable  *big.Int
+}
+
+func FetchStakingV1NextOrderID(ctx context.Context, client *ethclient.Client, blockNumber uint64) (*big.Int, error) {
+	contract, err := NewStakingNew(StakingV1Contract, client)
+	if nil != err {
+		return nil, err
+	}
+	callOpts := &bind.CallOpts{Context: ctx}
+	if 0 < blockNumber {
+		callOpts.BlockNumber = new(big.Int).SetUint64(blockNumber)
+	}
+	return contract.NextOrderId(callOpts)
+}
+
+func fetchStakingV1OrderSnapshotsForUser(ctx context.Context, contract *bind.BoundContract, user *biz.StakingV1OrderUser, blockNumber uint64) ([]*biz.StakingV1OrderSnapshot, error) {
+	if nil == user || !common.IsHexAddress(user.UserAddr) {
+		return nil, fmt.Errorf("invalid staking order snapshot user")
+	}
+	callOpts := &bind.CallOpts{Context: ctx}
+	if 0 < blockNumber {
+		callOpts.BlockNumber = new(big.Int).SetUint64(blockNumber)
+	}
+
+	const pageSize uint64 = 50
+	snapshots := make([]*biz.StakingV1OrderSnapshot, 0)
+	address := common.HexToAddress(user.UserAddr)
+	for offset := uint64(0); ; offset += pageSize {
+		var output []interface{}
+		if err := contract.Call(callOpts, &output, "orders", address, new(big.Int).SetUint64(offset), new(big.Int).SetUint64(pageSize)); nil != err {
+			return nil, err
+		}
+		if 1 != len(output) {
+			return nil, fmt.Errorf("staking order view returned invalid output")
+		}
+		page := *abi.ConvertType(output[0], new([]stakingV1OrderView)).(*[]stakingV1OrderView)
+		for _, order := range page {
+			if order.Account != address || nil == order.Id || 0 == order.Id.Sign() {
+				return nil, fmt.Errorf("staking order view returned invalid order")
+			}
+			amount, errT := formatPerformanceAmount(order.Amount)
+			if nil != errT {
+				return nil, errT
+			}
+			baseCap, errT := formatPerformanceAmount(order.Cap)
+			if nil != errT {
+				return nil, errT
+			}
+			capAmount, errT := formatPerformanceAmount(order.CapNow)
+			if nil != errT {
+				return nil, errT
+			}
+			used, errT := formatPerformanceAmount(order.Used)
+			if nil != errT {
+				return nil, errT
+			}
+			remaining, errT := formatPerformanceAmount(order.Left)
+			if nil != errT {
+				return nil, errT
+			}
+			compensation, errT := formatPerformanceAmount(order.Comp)
+			if nil != errT {
+				return nil, errT
+			}
+			linePaid, errT := formatPerformanceAmount(order.LinePaid)
+			if nil != errT {
+				return nil, errT
+			}
+			lineClaimable, errT := formatPerformanceAmount(order.LineClaimable)
+			if nil != errT {
+				return nil, errT
+			}
+
+			status := biz.StakingV1OrderStatusQueued
+			if order.Exited {
+				status = biz.StakingV1OrderStatusExited
+			} else if 0 < order.Start.Sign() {
+				status = biz.StakingV1OrderStatusRunning
+			}
+			snapshots = append(snapshots, &biz.StakingV1OrderSnapshot{
+				OrderID: order.Id.String(), UserID: user.UserID, UserAddr: strings.ToLower(address.Hex()),
+				UserOrderIndex: order.Index.String(), Amount: amount, BaseCap: baseCap, Cap: capAmount,
+				Used: used, Remaining: remaining, Compensation: compensation, LinePaid: linePaid, LineClaimable: lineClaimable,
+				CreatedTime: order.Created.Uint64(), StartTime: order.Start.Uint64(), ClaimEffective: order.ClaimEffective.Uint64(),
+				DaysCount: order.DaysCount, Status: status, LastSyncedBlock: blockNumber,
+			})
+		}
+		if len(page) < int(pageSize) {
+			break
+		}
+	}
+	return snapshots, nil
+}
+
+func FetchStakingV1OrderSnapshots(ctx context.Context, client *ethclient.Client, users []*biz.StakingV1OrderUser, blockNumber uint64) ([]*biz.StakingV1OrderSnapshot, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(stakingV1ViewOrdersABI))
+	if nil != err {
+		return nil, err
+	}
+	contract := bind.NewBoundContract(stakingV1ViewContract, parsedABI, client, client, client)
+	type userResult struct {
+		snapshots []*biz.StakingV1OrderSnapshot
+		err       error
+	}
+	workCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make(chan userResult, len(users))
+	workers := make(chan struct{}, 5)
+	for _, user := range users {
+		go func(user *biz.StakingV1OrderUser) {
+			select {
+			case workers <- struct{}{}:
+				defer func() { <-workers }()
+			case <-workCtx.Done():
+				results <- userResult{err: workCtx.Err()}
+				return
+			}
+			snapshots, fetchErr := fetchStakingV1OrderSnapshotsForUser(workCtx, contract, user, blockNumber)
+			results <- userResult{snapshots: snapshots, err: fetchErr}
+		}(user)
+	}
+
+	snapshots := make([]*biz.StakingV1OrderSnapshot, 0)
+	var firstErr error
+	for range users {
+		result := <-results
+		if nil != result.err {
+			if nil == firstErr {
+				firstErr = result.err
+				cancel()
+			}
+			continue
+		}
+		snapshots = append(snapshots, result.snapshots...)
+	}
+	if nil != firstErr {
+		return nil, firstErr
+	}
+	return snapshots, nil
 }
 
 func ParseUserV1PerformanceLogs(logs []types.Log) ([]*biz.UserV1StakeChanged, []*biz.UserV1ExtraChanged, []*biz.StakingV1Reward, error) {
@@ -7201,6 +8500,188 @@ func ParseUserV1PerformanceLogs(logs []types.Log) ([]*biz.UserV1StakeChanged, []
 	return stakes, extras, rewards, nil
 }
 
+func stakingV1OrderEventBase(lg types.Log, eventType string) *biz.StakingV1OrderEvent {
+	return &biz.StakingV1OrderEvent{
+		BlockNumber: lg.BlockNumber,
+		LogIndex:    lg.Index,
+		EventKey:    performanceEventKey(lg),
+		TxHash:      strings.ToLower(lg.TxHash.Hex()),
+		EventType:   eventType,
+	}
+}
+
+func ParseStakingV1OrderLogs(logs []types.Log) ([]*biz.StakingV1OrderEvent, []*biz.StakingV1OrderUser, error) {
+	parser, err := NewStakingNewFilterer(StakingV1Contract, nil)
+	if nil != err {
+		return nil, nil, err
+	}
+	events := make([]*biz.StakingV1OrderEvent, 0, len(logs))
+	refreshUsers := make([]*biz.StakingV1OrderUser, 0)
+	refreshSeen := make(map[string]struct{})
+	addRefreshUser := func(address common.Address) {
+		value := strings.ToLower(address.Hex())
+		if _, ok := refreshSeen[value]; ok {
+			return
+		}
+		refreshSeen[value] = struct{}{}
+		refreshUsers = append(refreshUsers, &biz.StakingV1OrderUser{UserAddr: value})
+	}
+
+	for _, lg := range logs {
+		if lg.Address != StakingV1Contract || 0 == len(lg.Topics) {
+			return nil, nil, fmt.Errorf("unexpected staking order log at block %d", lg.BlockNumber)
+		}
+		switch lg.Topics[0] {
+		case stakingV1PlanSetTopic:
+			value, errT := parser.ParsePlanSet(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			minAmount, errT := formatPerformanceAmount(value.MinAmount)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			maxAmount, errT := formatPerformanceAmount(value.MaxAmount)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			outAmount, errT := formatPerformanceAmount(value.OutAmount)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventPlanSet)
+			event.PlanID = value.Index.String()
+			event.MinAmount = minAmount
+			event.MaxAmount = maxAmount
+			event.OutAmount = outAmount
+			event.DaysCount = value.DaysCount
+			event.Enabled = value.Enabled
+			events = append(events, event)
+		case stakingV1OrderCreatedTopic:
+			value, errT := parser.ParseOrderCreated(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			amount, errT := formatPerformanceAmount(value.Amount)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			capAmount, errT := formatPerformanceAmount(value.Cap)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventCreated)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.Amount = amount
+			event.Cap = capAmount
+			event.PlanID = value.Plan.String()
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1OrderEnteredTopic:
+			value, errT := parser.ParseOrderEntered(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventEntered)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.StartTime = value.Start.Uint64()
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1OrderExitedTopic:
+			value, errT := parser.ParseOrderExited(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			amount, errT := formatPerformanceAmount(value.Amount)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			used, errT := formatPerformanceAmount(value.Used)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventExited)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.Amount = amount
+			event.Used = used
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1OrderCapSetTopic:
+			value, errT := parser.ParseOrderCapSet(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			oldCap, errT := formatPerformanceAmount(value.OldCap)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			newCap, errT := formatPerformanceAmount(value.NewCap)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventCapSet)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.UserOrderIndex = value.Index.String()
+			event.OldCap = oldCap
+			event.NewCap = newCap
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1QueuedTopic:
+			value, errT := parser.ParseQueued(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			liqU, errT := formatPerformanceAmount(value.LiqU)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventQueued)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.QueueIndex = value.Index.String()
+			event.QueueLiqU = liqU
+			event.QueuedAt = value.QueuedAt.Uint64()
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1QueueDoneTopic:
+			value, errT := parser.ParseQueueDone(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			liqU, errT := formatPerformanceAmount(value.LiqU)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			event := stakingV1OrderEventBase(lg, biz.StakingV1OrderEventQueueDone)
+			event.OrderID = value.OrderId.String()
+			event.UserAddr = strings.ToLower(value.User.Hex())
+			event.QueueIndex = value.Index.String()
+			event.QueueLiqU = liqU
+			events = append(events, event)
+			addRefreshUser(value.User)
+		case stakingV1LineClaimedTopic:
+			value, errT := parser.ParseLineClaimed(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			addRefreshUser(value.User)
+		case stakingV1TeamClaimedTopic:
+			value, errT := parser.ParseTeamClaimed(lg)
+			if nil != errT {
+				return nil, nil, errT
+			}
+			addRefreshUser(value.User)
+		default:
+			return nil, nil, fmt.Errorf("unknown staking order topic %s", lg.Topics[0].Hex())
+		}
+	}
+	return events, refreshUsers, nil
+}
+
 func FetchPerformanceRecoverySafeHead(ctx context.Context) (uint64, error) {
 	var lastErr error
 	for _, url := range performanceRecoveryRPCURLs() {
@@ -7230,6 +8711,33 @@ func FetchPerformanceRecoverySafeHead(ctx context.Context) (uint64, error) {
 	return 0, lastErr
 }
 
+func FetchConfiguredStakingOrderSafeHead(ctx context.Context, urls []string) (uint64, error) {
+	var lastErr error
+	for _, url := range urls {
+		rpcCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		client, err := ethclient.DialContext(rpcCtx, url)
+		if nil == err {
+			var head uint64
+			head, err = client.BlockNumber(rpcCtx)
+			client.Close()
+			if nil == err {
+				cancel()
+				if head <= Confirmations {
+					lastErr = fmt.Errorf("configured staking order RPC head %d is too low", head)
+					continue
+				}
+				return head - Confirmations, nil
+			}
+		}
+		cancel()
+		lastErr = err
+	}
+	if nil == lastErr {
+		lastErr = fmt.Errorf("no configured staking order RPC available")
+	}
+	return 0, lastErr
+}
+
 func fetchPerformanceHistoryLogsFromRPC(ctx context.Context, url string, fromBlock, toBlock uint64) ([]types.Log, error) {
 	rpcCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -7238,6 +8746,13 @@ func fetchPerformanceHistoryLogsFromRPC(ctx context.Context, url string, fromBlo
 		return nil, err
 	}
 	defer client.Close()
+	var nodeHead hexutil.Uint64
+	if err = client.CallContext(rpcCtx, &nodeHead, "eth_blockNumber"); nil != err {
+		return nil, err
+	}
+	if uint64(nodeHead) < toBlock || uint64(nodeHead)-toBlock < Confirmations {
+		return nil, fmt.Errorf("history RPC head %d has not confirmed requested block %d", uint64(nodeHead), toBlock)
+	}
 
 	filter := map[string]interface{}{
 		"fromBlock": hexutil.EncodeUint64(fromBlock),
@@ -7276,20 +8791,141 @@ func fetchPerformanceHistoryLogsFromRPC(ctx context.Context, url string, fromBlo
 
 func FetchPerformanceHistoryLogs(ctx context.Context, fromBlock, toBlock uint64) ([]types.Log, error) {
 	urls := performanceRecoveryRPCURLs()
-	if 0 == len(urls) {
-		return nil, fmt.Errorf("no performance recovery RPC configured")
+	if len(urls) < 2 {
+		return nil, fmt.Errorf("at least two performance recovery RPCs are required")
 	}
 	start := int((fromBlock / PerformanceRecoveryStep) % uint64(len(urls)))
-	var lastErr error
+	type rpcResult struct {
+		logs []types.Log
+		err  error
+	}
+	verificationCtx, verificationCancel := context.WithCancel(ctx)
+	defer verificationCancel()
+	results := make(chan rpcResult, len(urls))
 	for i := 0; i < len(urls); i++ {
 		url := urls[(start+i)%len(urls)]
-		logs, err := fetchPerformanceHistoryLogsFromRPC(ctx, url, fromBlock, toBlock)
-		if nil == err {
-			return logs, nil
-		}
-		lastErr = err
+		go func(url string) {
+			rpcCtx, cancel := context.WithTimeout(verificationCtx, 20*time.Second)
+			logs, err := fetchPerformanceHistoryLogsFromRPC(rpcCtx, url, fromBlock, toBlock)
+			cancel()
+			results <- rpcResult{logs: logs, err: err}
+		}(url)
 	}
-	return nil, fmt.Errorf("performance history [%d,%d]: %w", fromBlock, toBlock, lastErr)
+	lastErr := fmt.Errorf("history RPC results disagree")
+	verified := make([][]types.Log, 0, len(urls))
+	for i := 0; i < len(urls); i++ {
+		select {
+		case result := <-results:
+			if nil != result.err {
+				lastErr = result.err
+				continue
+			}
+			for _, previous := range verified {
+				if len(previous) == len(result.logs) && (0 == len(result.logs) || reflect.DeepEqual(previous, result.logs)) {
+					return result.logs, nil
+				}
+			}
+			verified = append(verified, result.logs)
+			lastErr = fmt.Errorf("history RPC results disagree")
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, fmt.Errorf("performance history [%d,%d] was not confirmed by two RPCs: %w", fromBlock, toBlock, lastErr)
+}
+
+func fetchStakingV1OrderHistoryLogsFromRPC(ctx context.Context, url string, fromBlock, toBlock uint64) ([]types.Log, error) {
+	client, err := rpc.DialContext(ctx, url)
+	if nil != err {
+		return nil, err
+	}
+	defer client.Close()
+	var nodeHead hexutil.Uint64
+	if err = client.CallContext(ctx, &nodeHead, "eth_blockNumber"); nil != err {
+		return nil, err
+	}
+	if uint64(nodeHead) < toBlock || uint64(nodeHead)-toBlock < Confirmations {
+		return nil, fmt.Errorf("staking order history RPC head %d has not confirmed requested block %d", uint64(nodeHead), toBlock)
+	}
+
+	topicValues := stakingV1OrderTopics()
+	topicHex := make([]string, 0, len(topicValues))
+	for _, topic := range topicValues {
+		topicHex = append(topicHex, topic.Hex())
+	}
+	filter := map[string]interface{}{
+		"fromBlock": hexutil.EncodeUint64(fromBlock),
+		"toBlock":   hexutil.EncodeUint64(toBlock),
+		"address":   strings.ToLower(StakingV1Contract.Hex()),
+		"topics":    [][]string{topicHex},
+	}
+	var filterID string
+	if err = client.CallContext(ctx, &filterID, "eth_newFilter", filter); nil != err {
+		return nil, err
+	}
+	defer func() {
+		uninstallCtx, uninstallCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer uninstallCancel()
+		var removed bool
+		_ = client.CallContext(uninstallCtx, &removed, "eth_uninstallFilter", filterID)
+	}()
+
+	var logs []types.Log
+	if err = client.CallContext(ctx, &logs, "eth_getFilterLogs", filterID); nil != err {
+		return nil, err
+	}
+	sort.Slice(logs, func(i, j int) bool {
+		if logs[i].BlockNumber == logs[j].BlockNumber {
+			return logs[i].Index < logs[j].Index
+		}
+		return logs[i].BlockNumber < logs[j].BlockNumber
+	})
+	return logs, nil
+}
+
+func FetchStakingV1OrderHistoryLogs(ctx context.Context, fromBlock, toBlock uint64) ([]types.Log, error) {
+	urls := performanceRecoveryRPCURLs()
+	if len(urls) < 2 {
+		return nil, fmt.Errorf("at least two staking order recovery RPCs are required")
+	}
+	start := int((fromBlock / PerformanceRecoveryStep) % uint64(len(urls)))
+	type rpcResult struct {
+		logs []types.Log
+		err  error
+	}
+	verificationCtx, verificationCancel := context.WithCancel(ctx)
+	defer verificationCancel()
+	results := make(chan rpcResult, len(urls))
+	for i := 0; i < len(urls); i++ {
+		url := urls[(start+i)%len(urls)]
+		go func(url string) {
+			rpcCtx, cancel := context.WithTimeout(verificationCtx, 20*time.Second)
+			logs, err := fetchStakingV1OrderHistoryLogsFromRPC(rpcCtx, url, fromBlock, toBlock)
+			cancel()
+			results <- rpcResult{logs: logs, err: err}
+		}(url)
+	}
+	lastErr := fmt.Errorf("history RPC results disagree")
+	verified := make([][]types.Log, 0, len(urls))
+	for i := 0; i < len(urls); i++ {
+		select {
+		case result := <-results:
+			if nil != result.err {
+				lastErr = result.err
+				continue
+			}
+			for _, previous := range verified {
+				if len(previous) == len(result.logs) && (0 == len(result.logs) || reflect.DeepEqual(previous, result.logs)) {
+					return result.logs, nil
+				}
+			}
+			verified = append(verified, result.logs)
+			lastErr = fmt.Errorf("history RPC results disagree")
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, fmt.Errorf("staking order history [%d,%d] was not confirmed by two RPCs: %w", fromBlock, toBlock, lastErr)
 }
 
 func FetchStakingV1LevelRewards(ctx context.Context, url string, users []*biz.UserV1Bound, blockNumber uint64) (map[uint64]string, error) {

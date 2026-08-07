@@ -58,15 +58,21 @@ const OperationTransactionGetRewardList = "/api.requestEth.v1.Transaction/GetRew
 const OperationTransactionGetSellBoxList = "/api.requestEth.v1.Transaction/GetSellBoxList"
 const OperationTransactionGetSellEvent = "/api.requestEth.v1.Transaction/GetSellEvent"
 const OperationTransactionGetStakeEvent = "/api.requestEth.v1.Transaction/GetStakeEvent"
+const OperationTransactionGetStakingOrderEvent = "/api.requestEth.v1.Transaction/GetStakingOrderEvent"
+const OperationTransactionGetStakingOrderList = "/api.requestEth.v1.Transaction/GetStakingOrderList"
 const OperationTransactionGetStakingRewardEvent = "/api.requestEth.v1.Transaction/GetStakingRewardEvent"
 const OperationTransactionGetUserBoundEvent = "/api.requestEth.v1.Transaction/GetUserBoundEvent"
 const OperationTransactionGetUserExtraChangedEvent = "/api.requestEth.v1.Transaction/GetUserExtraChangedEvent"
+const OperationTransactionGetUserList = "/api.requestEth.v1.Transaction/GetUserList"
 const OperationTransactionGetUserLp = "/api.requestEth.v1.Transaction/GetUserLp"
+const OperationTransactionGetUserOverview = "/api.requestEth.v1.Transaction/GetUserOverview"
 const OperationTransactionGetUserREvent = "/api.requestEth.v1.Transaction/GetUserREvent"
 const OperationTransactionGetUserStakeChangedEvent = "/api.requestEth.v1.Transaction/GetUserStakeChangedEvent"
 const OperationTransactionPQueue = "/api.requestEth.v1.Transaction/PQueue"
 const OperationTransactionRecoverPerformanceEvent = "/api.requestEth.v1.Transaction/RecoverPerformanceEvent"
+const OperationTransactionRecoverStakingOrderEvent = "/api.requestEth.v1.Transaction/RecoverStakingOrderEvent"
 const OperationTransactionRecoverUserBoundEvent = "/api.requestEth.v1.Transaction/RecoverUserBoundEvent"
+const OperationTransactionRecoverUserInvestmentData = "/api.requestEth.v1.Transaction/RecoverUserInvestmentData"
 const OperationTransactionRemoveLiquidity = "/api.requestEth.v1.Transaction/RemoveLiquidity"
 const OperationTransactionSendAICAT = "/api.requestEth.v1.Transaction/SendAICAT"
 const OperationTransactionSendTransaction = "/api.requestEth.v1.Transaction/SendTransaction"
@@ -120,15 +126,21 @@ type TransactionHTTPServer interface {
 	GetSellBoxList(context.Context, *GetSellBoxListRequest) (*GetSellBoxListReply, error)
 	GetSellEvent(context.Context, *GetSellEventRequest) (*GetSellEventReply, error)
 	GetStakeEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error)
 	GetStakingRewardEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserBoundEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserExtraChangedEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error)
 	GetUserLp(context.Context, *GetUserLpRequest) (*GetUserLpReply, error)
+	GetUserOverview(context.Context, *GetUserOverviewRequest) (*GetUserOverviewReply, error)
 	GetUserREvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserStakeChangedEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	PQueue(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	RecoverPerformanceEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	RecoverStakingOrderEvent(context.Context, *GetUserREventRequest) (*RecoverStakingOrderEventReply, error)
 	RecoverUserBoundEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	RecoverUserInvestmentData(context.Context, *GetUserREventRequest) (*RecoverUserInvestmentDataReply, error)
 	RemoveLiquidity(context.Context, *RemoveLiquidityRequest) (*RemoveLiquidityReply, error)
 	SendAICAT(context.Context, *SendAICATRequest) (*SendAICATReply, error)
 	SendTransaction(context.Context, *SendTransactionRequest) (*SendTransactionReply, error)
@@ -196,6 +208,12 @@ func RegisterTransactionHTTPServer(s *http.Server, srv TransactionHTTPServer) {
 	r.GET("/api/get_user_extra_changed_event", _Transaction_GetUserExtraChangedEvent0_HTTP_Handler(srv))
 	r.GET("/api/get_staking_reward_event", _Transaction_GetStakingRewardEvent0_HTTP_Handler(srv))
 	r.GET("/api/recover_performance_event", _Transaction_RecoverPerformanceEvent0_HTTP_Handler(srv))
+	r.GET("/api/get_user_overview", _Transaction_GetUserOverview0_HTTP_Handler(srv))
+	r.GET("/api/get_user_list", _Transaction_GetUserList0_HTTP_Handler(srv))
+	r.GET("/api/recover_user_investment_data", _Transaction_RecoverUserInvestmentData0_HTTP_Handler(srv))
+	r.GET("/api/get_staking_order_event", _Transaction_GetStakingOrderEvent0_HTTP_Handler(srv))
+	r.GET("/api/recover_staking_order_event", _Transaction_RecoverStakingOrderEvent0_HTTP_Handler(srv))
+	r.GET("/api/get_staking_order_list", _Transaction_GetStakingOrderList0_HTTP_Handler(srv))
 	r.GET("/api/get_exchange_list", _Transaction_GetExchangeList0_HTTP_Handler(srv))
 	r.GET("/api/get_buy_list", _Transaction_GetBuyList0_HTTP_Handler(srv))
 	r.GET("/api/get_reward_list", _Transaction_GetRewardList0_HTTP_Handler(srv))
@@ -1206,6 +1224,120 @@ func _Transaction_RecoverPerformanceEvent0_HTTP_Handler(srv TransactionHTTPServe
 	}
 }
 
+func _Transaction_GetUserOverview0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserOverviewRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetUserOverview)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetUserOverview(ctx, req.(*GetUserOverviewRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetUserOverviewReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_GetUserList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserListRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetUserList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetUserList(ctx, req.(*GetUserListRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetUserListReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_RecoverUserInvestmentData0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserREventRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionRecoverUserInvestmentData)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.RecoverUserInvestmentData(ctx, req.(*GetUserREventRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*RecoverUserInvestmentDataReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_GetStakingOrderEvent0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserREventRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetStakingOrderEvent)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetStakingOrderEvent(ctx, req.(*GetUserREventRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetUserREventReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_RecoverStakingOrderEvent0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserREventRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionRecoverStakingOrderEvent)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.RecoverStakingOrderEvent(ctx, req.(*GetUserREventRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*RecoverStakingOrderEventReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_GetStakingOrderList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetStakingOrderListRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetStakingOrderList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetStakingOrderList(ctx, req.(*GetStakingOrderListRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetStakingOrderListReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _Transaction_GetExchangeList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetExchangeListRequest
@@ -1417,15 +1549,21 @@ type TransactionHTTPClient interface {
 	GetSellBoxList(ctx context.Context, req *GetSellBoxListRequest, opts ...http.CallOption) (rsp *GetSellBoxListReply, err error)
 	GetSellEvent(ctx context.Context, req *GetSellEventRequest, opts ...http.CallOption) (rsp *GetSellEventReply, err error)
 	GetStakeEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	GetStakingOrderEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	GetStakingOrderList(ctx context.Context, req *GetStakingOrderListRequest, opts ...http.CallOption) (rsp *GetStakingOrderListReply, err error)
 	GetStakingRewardEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetUserBoundEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetUserExtraChangedEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	GetUserList(ctx context.Context, req *GetUserListRequest, opts ...http.CallOption) (rsp *GetUserListReply, err error)
 	GetUserLp(ctx context.Context, req *GetUserLpRequest, opts ...http.CallOption) (rsp *GetUserLpReply, err error)
+	GetUserOverview(ctx context.Context, req *GetUserOverviewRequest, opts ...http.CallOption) (rsp *GetUserOverviewReply, err error)
 	GetUserREvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetUserStakeChangedEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	PQueue(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	RecoverPerformanceEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	RecoverStakingOrderEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *RecoverStakingOrderEventReply, err error)
 	RecoverUserBoundEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	RecoverUserInvestmentData(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *RecoverUserInvestmentDataReply, err error)
 	RemoveLiquidity(ctx context.Context, req *RemoveLiquidityRequest, opts ...http.CallOption) (rsp *RemoveLiquidityReply, err error)
 	SendAICAT(ctx context.Context, req *SendAICATRequest, opts ...http.CallOption) (rsp *SendAICATReply, err error)
 	SendTransaction(ctx context.Context, req *SendTransactionRequest, opts ...http.CallOption) (rsp *SendTransactionReply, err error)
@@ -1955,6 +2093,32 @@ func (c *TransactionHTTPClientImpl) GetStakeEvent(ctx context.Context, in *GetUs
 	return &out, err
 }
 
+func (c *TransactionHTTPClientImpl) GetStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...http.CallOption) (*GetUserREventReply, error) {
+	var out GetUserREventReply
+	pattern := "/api/get_staking_order_event"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetStakingOrderEvent))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) GetStakingOrderList(ctx context.Context, in *GetStakingOrderListRequest, opts ...http.CallOption) (*GetStakingOrderListReply, error) {
+	var out GetStakingOrderListReply
+	pattern := "/api/get_staking_order_list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetStakingOrderList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
 func (c *TransactionHTTPClientImpl) GetStakingRewardEvent(ctx context.Context, in *GetUserREventRequest, opts ...http.CallOption) (*GetUserREventReply, error) {
 	var out GetUserREventReply
 	pattern := "/api/get_staking_reward_event"
@@ -1994,11 +2158,37 @@ func (c *TransactionHTTPClientImpl) GetUserExtraChangedEvent(ctx context.Context
 	return &out, err
 }
 
+func (c *TransactionHTTPClientImpl) GetUserList(ctx context.Context, in *GetUserListRequest, opts ...http.CallOption) (*GetUserListReply, error) {
+	var out GetUserListReply
+	pattern := "/api/get_user_list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetUserList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
 func (c *TransactionHTTPClientImpl) GetUserLp(ctx context.Context, in *GetUserLpRequest, opts ...http.CallOption) (*GetUserLpReply, error) {
 	var out GetUserLpReply
 	pattern := "/api/get_user_lp"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationTransactionGetUserLp))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) GetUserOverview(ctx context.Context, in *GetUserOverviewRequest, opts ...http.CallOption) (*GetUserOverviewReply, error) {
+	var out GetUserOverviewReply
+	pattern := "/api/get_user_overview"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetUserOverview))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
@@ -2059,11 +2249,37 @@ func (c *TransactionHTTPClientImpl) RecoverPerformanceEvent(ctx context.Context,
 	return &out, err
 }
 
+func (c *TransactionHTTPClientImpl) RecoverStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...http.CallOption) (*RecoverStakingOrderEventReply, error) {
+	var out RecoverStakingOrderEventReply
+	pattern := "/api/recover_staking_order_event"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionRecoverStakingOrderEvent))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
 func (c *TransactionHTTPClientImpl) RecoverUserBoundEvent(ctx context.Context, in *GetUserREventRequest, opts ...http.CallOption) (*GetUserREventReply, error) {
 	var out GetUserREventReply
 	pattern := "/api/recover_user_bound_event"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationTransactionRecoverUserBoundEvent))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) RecoverUserInvestmentData(ctx context.Context, in *GetUserREventRequest, opts ...http.CallOption) (*RecoverUserInvestmentDataReply, error) {
+	var out RecoverUserInvestmentDataReply
+	pattern := "/api/recover_user_investment_data"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionRecoverUserInvestmentData))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

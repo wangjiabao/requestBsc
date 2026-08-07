@@ -272,6 +272,7 @@ type UserV1Bound struct {
 
 	Amount                            string `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
 	AmountHistory                     string `gorm:"column:amount_history;type:decimal(65,18);not null;default:0"`
+	InvestmentCount                   uint64 `gorm:"column:investment_count;not null;default:0"`
 	ChildrenAmount                    string `gorm:"column:children_amount;type:decimal(65,18);not null;default:0"`
 	ChildrenAmountHistory             string `gorm:"column:children_amount_history;type:decimal(65,18);not null;default:0"`
 	ChildrenAmountExtra               string `gorm:"column:children_amount_extra;type:decimal(65,18);not null;default:0"`
@@ -309,15 +310,17 @@ type UserV1PerformanceSyncProgress struct {
 }
 
 type UserV1StakeChanged struct {
-	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
-	BlockNumber uint64    `gorm:"column:block_number;not null"`
-	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
-	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
-	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
-	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
-	IsAdd       bool      `gorm:"column:is_add;not null;default:0"`
-	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	ID               uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber      uint64    `gorm:"column:block_number;not null"`
+	BlockTime        uint64    `gorm:"column:block_time;not null;default:0"`
+	EventKey         string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash           string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	UserAddr         string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	Amount           string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	IsAdd            bool      `gorm:"column:is_add;not null;default:0"`
+	InvestmentNumber uint64    `gorm:"column:investment_number;not null;default:0"`
+	CreatedAt        time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt        time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 type UserV1ExtraChanged struct {
@@ -382,6 +385,144 @@ type StakingV1LineClaimed struct {
 	FeeU        string    `gorm:"column:fee_u;type:decimal(65,18);not null;default:0"`
 	PaidMs      bool      `gorm:"column:paid_ms;not null;default:0"`
 	MsAmount    string    `gorm:"column:ms_amount;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1Order struct {
+	ID             uint64 `gorm:"column:id;primaryKey;autoIncrement"`
+	OrderID        string `gorm:"column:order_id;type:decimal(65,0);not null;uniqueIndex"`
+	UserID         uint64 `gorm:"column:user_id;not null;default:0"`
+	UserAddr       string `gorm:"column:user_addr;type:varchar(42);not null;default:''"`
+	UserOrderIndex string `gorm:"column:user_order_index;type:decimal(65,0);not null;default:0"`
+
+	Amount        string `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	BaseCap       string `gorm:"column:base_cap;type:decimal(65,18);not null;default:0"`
+	Cap           string `gorm:"column:cap;type:decimal(65,18);not null;default:0"`
+	Used          string `gorm:"column:used;type:decimal(65,18);not null;default:0"`
+	Remaining     string `gorm:"column:remaining;type:decimal(65,18);not null;default:0"`
+	Compensation  string `gorm:"column:compensation;type:decimal(65,18);not null;default:0"`
+	LinePaid      string `gorm:"column:line_paid;type:decimal(65,18);not null;default:0"`
+	LineClaimable string `gorm:"column:line_claimable;type:decimal(65,18);not null;default:0"`
+	PlanID        string `gorm:"column:plan_id;type:decimal(65,0);not null;default:0"`
+
+	CreatedTime    uint64 `gorm:"column:created_time;not null;default:0"`
+	StartTime      uint64 `gorm:"column:start_time;not null;default:0"`
+	ClaimEffective uint64 `gorm:"column:claim_effective;not null;default:0"`
+	DaysCount      uint32 `gorm:"column:days_count;not null;default:0"`
+	Status         uint8  `gorm:"column:status;not null;default:1"`
+
+	QueueIndex string `gorm:"column:queue_index;type:decimal(65,0);not null;default:0"`
+	QueueLiqU  string `gorm:"column:queue_liq_u;type:decimal(65,18);not null;default:0"`
+	QueuedAt   uint64 `gorm:"column:queued_at;not null;default:0"`
+	QueueDone  bool   `gorm:"column:queue_done;not null;default:0"`
+
+	CreatedBlock    uint64    `gorm:"column:created_block;not null;default:0"`
+	EnteredBlock    uint64    `gorm:"column:entered_block;not null;default:0"`
+	ExitedBlock     uint64    `gorm:"column:exited_block;not null;default:0"`
+	LastSyncedBlock uint64    `gorm:"column:last_synced_block;not null;default:0"`
+	CreatedAt       time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt       time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderCreated struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID      uint64    `gorm:"column:user_id;not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	Cap         string    `gorm:"column:cap;type:decimal(65,18);not null;default:0"`
+	PlanID      string    `gorm:"column:plan_id;type:decimal(65,0);not null;default:0"`
+	DaysCount   uint32    `gorm:"column:days_count;not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderEntered struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID      uint64    `gorm:"column:user_id;not null"`
+	StartTime   uint64    `gorm:"column:start_time;not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderExited struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID      uint64    `gorm:"column:user_id;not null"`
+	Amount      string    `gorm:"column:amount;type:decimal(65,18);not null;default:0"`
+	Used        string    `gorm:"column:used;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderCapSet struct {
+	ID             uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber    uint64    `gorm:"column:block_number;not null"`
+	EventKey       string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash         string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID        string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr       string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID         uint64    `gorm:"column:user_id;not null"`
+	UserOrderIndex string    `gorm:"column:user_order_index;type:decimal(65,0);not null;default:0"`
+	OldCap         string    `gorm:"column:old_cap;type:decimal(65,18);not null;default:0"`
+	NewCap         string    `gorm:"column:new_cap;type:decimal(65,18);not null;default:0"`
+	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderQueued struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID      uint64    `gorm:"column:user_id;not null"`
+	QueueIndex  string    `gorm:"column:queue_index;type:decimal(65,0);not null;default:0"`
+	QueueLiqU   string    `gorm:"column:queue_liq_u;type:decimal(65,18);not null;default:0"`
+	QueuedAt    uint64    `gorm:"column:queued_at;not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1OrderQueueDone struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	OrderID     string    `gorm:"column:order_id;type:decimal(65,0);not null"`
+	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
+	UserID      uint64    `gorm:"column:user_id;not null"`
+	QueueIndex  string    `gorm:"column:queue_index;type:decimal(65,0);not null;default:0"`
+	QueueLiqU   string    `gorm:"column:queue_liq_u;type:decimal(65,18);not null;default:0"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+type StakingV1PlanSet struct {
+	ID          uint64    `gorm:"column:id;primaryKey;autoIncrement"`
+	BlockNumber uint64    `gorm:"column:block_number;not null"`
+	EventKey    string    `gorm:"column:event_key;type:varchar(96);not null;uniqueIndex"`
+	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
+	PlanID      string    `gorm:"column:plan_id;type:decimal(65,0);not null"`
+	MinAmount   string    `gorm:"column:min_amount;type:decimal(65,18);not null;default:0"`
+	MaxAmount   string    `gorm:"column:max_amount;type:decimal(65,18);not null;default:0"`
+	OutAmount   string    `gorm:"column:out_amount;type:decimal(65,18);not null;default:0"`
+	DaysCount   uint32    `gorm:"column:days_count;not null;default:0"`
+	Enabled     bool      `gorm:"column:enabled;not null;default:0"`
 	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
@@ -2130,6 +2271,7 @@ func toBizUserV1Bound(v *UserV1Bound) *biz.UserV1Bound {
 
 		Amount:                            v.Amount,
 		AmountHistory:                     v.AmountHistory,
+		InvestmentCount:                   v.InvestmentCount,
 		ChildrenAmount:                    v.ChildrenAmount,
 		ChildrenAmountHistory:             v.ChildrenAmountHistory,
 		ChildrenAmountExtra:               v.ChildrenAmountExtra,
@@ -2209,6 +2351,125 @@ func (u *UserRepo) GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*b
 	return result, nil
 }
 
+func (u *UserRepo) GetUserV1Overview(ctx context.Context, yesterdayStart, todayStart, tomorrowStart uint64) (*biz.UserV1Overview, error) {
+	overview := &biz.UserV1Overview{}
+	var stakeProgress UserV1PerformanceSyncProgress
+	if err := u.data.DB(ctx).Table("user_v1_performance_sync_progress").
+		Select("last_processed_block").Where("stream_name = ?", biz.UserV1PerformanceStreamStake).
+		First(&stakeProgress).Error; nil != err && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errors.New(500, "GET_USER_V1_OVERVIEW_PROGRESS_ERROR", err.Error())
+	}
+	investmentRepairFromBlock := uint64(0)
+	if stakeProgress.LastProcessedBlock > 500000 {
+		investmentRepairFromBlock = stakeProgress.LastProcessedBlock - 500000
+	}
+	userSQL := `
+SELECT
+  (SELECT COUNT(*) FROM user_v1_bound_event) AS registered_user_count,
+  (SELECT COUNT(*) FROM user_v1_bound_event WHERE amount_history > 0) AS historical_investor_count,
+  (SELECT COUNT(*) FROM user_v1_bound_event WHERE amount > 0) AS current_investor_count,
+  (SELECT COUNT(*) FROM user_v1_bound_event WHERE amount >= 10000) AS current_amount_gte10000_user_count,
+  (SELECT COUNT(*) FROM user_v1_bound_event WHERE amount_history >= 10000) AS historical_amount_gte10000_user_count,
+  (SELECT COUNT(*) FROM user_v1_bound_event WHERE investment_count > 2) AS investment_count_gt2_user_count`
+	if err := u.data.DB(ctx).Raw(userSQL).Scan(overview).Error; nil != err {
+		return nil, errors.New(500, "GET_USER_V1_OVERVIEW_ERROR", err.Error())
+	}
+
+	investmentSQL := `
+SELECT
+  COALESCE(SUM(CASE WHEN block_time >= ? THEN amount ELSE 0 END), 0) AS today_investment_amount,
+  SUM(CASE WHEN block_time >= ? THEN 1 ELSE 0 END) AS today_investment_order_count,
+  COALESCE(SUM(CASE WHEN block_time < ? THEN amount ELSE 0 END), 0) AS yesterday_investment_amount,
+  SUM(CASE WHEN block_time < ? THEN 1 ELSE 0 END) AS yesterday_investment_order_count,
+  COALESCE(SUM(CASE WHEN block_time >= ? AND investment_number > 1 THEN amount ELSE 0 END), 0) AS today_reinvestment_amount,
+  (SELECT COUNT(*) FROM user_v1_stake_changed_event WHERE is_add = 1 AND block_time = 0 AND block_number >= ?) AS missing_investment_block_time_event_count,
+  (SELECT COUNT(*) FROM user_v1_stake_changed_event WHERE is_add = 1 AND investment_number = 0) AS missing_investment_number_event_count
+FROM user_v1_stake_changed_event
+WHERE is_add = 1 AND block_time >= ? AND block_time < ?`
+	var investmentOverview struct {
+		TodayInvestmentAmount                string
+		TodayInvestmentOrderCount            uint64
+		YesterdayInvestmentAmount            string
+		YesterdayInvestmentOrderCount        uint64
+		TodayReinvestmentAmount              string
+		MissingInvestmentBlockTimeEventCount uint64
+		MissingInvestmentNumberEventCount    uint64
+	}
+	if err := u.data.DB(ctx).Raw(
+		investmentSQL,
+		todayStart, todayStart, todayStart, todayStart, todayStart, investmentRepairFromBlock, yesterdayStart, tomorrowStart,
+	).Scan(&investmentOverview).Error; nil != err {
+		return nil, errors.New(500, "GET_USER_V1_INVESTMENT_OVERVIEW_ERROR", err.Error())
+	}
+	overview.TodayInvestmentAmount = investmentOverview.TodayInvestmentAmount
+	overview.TodayInvestmentOrderCount = investmentOverview.TodayInvestmentOrderCount
+	overview.YesterdayInvestmentAmount = investmentOverview.YesterdayInvestmentAmount
+	overview.YesterdayInvestmentOrderCount = investmentOverview.YesterdayInvestmentOrderCount
+	overview.TodayReinvestmentAmount = investmentOverview.TodayReinvestmentAmount
+	overview.MissingInvestmentBlockTimeEventCount = investmentOverview.MissingInvestmentBlockTimeEventCount
+	overview.MissingInvestmentNumberEventCount = investmentOverview.MissingInvestmentNumberEventCount
+	return overview, nil
+}
+
+func (u *UserRepo) GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*biz.UserV1Bound, uint64, error) {
+	query := u.data.DB(ctx).Table("user_v1_bound_event")
+	if "" != minAmount {
+		query = query.Where("amount >= CAST(? AS DECIMAL(65,18))", minAmount)
+	}
+	if "" != minChildrenAmount {
+		query = query.Where("children_amount >= CAST(? AS DECIMAL(65,18))", minChildrenAmount)
+	}
+	if "" != address {
+		query = query.Where("user_addr = ?", address)
+	}
+	if 0 < userID {
+		var user UserV1Bound
+		if err := u.data.DB(ctx).Table("user_v1_bound_event").Select("id, recommend_code").Where("id = ?", userID).First(&user).Error; nil != err {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return []*biz.UserV1Bound{}, 0, nil
+			}
+			return nil, 0, errors.New(500, "GET_USER_V1_BOUND_TREE_ROOT_ERROR", err.Error())
+		}
+		recommendPrefix := user.RecommendCode + "D" + fmt.Sprintf("%d", user.ID)
+		query = query.Where("recommend_code = ? OR recommend_code LIKE ?", recommendPrefix, recommendPrefix+"D%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; nil != err {
+		return nil, 0, errors.New(500, "COUNT_USER_V1_BOUND_PAGE_ERROR", err.Error())
+	}
+
+	orderColumn := "id"
+	switch orderBy {
+	case "amount":
+		orderColumn = "amount"
+	case "amount_history":
+		orderColumn = "amount_history"
+	case "children_amount":
+		orderColumn = "children_amount"
+	}
+	orderDirection := "DESC"
+	if "asc" == order {
+		orderDirection = "ASC"
+	}
+
+	var rows []UserV1Bound
+	offset := (page - 1) * pageSize
+	orderSQL := fmt.Sprintf("`%s` %s", orderColumn, orderDirection)
+	if "id" != orderColumn {
+		orderSQL += fmt.Sprintf(", `id` %s", orderDirection)
+	}
+	if err := query.Order(orderSQL).Offset(int(offset)).Limit(int(pageSize)).Find(&rows).Error; nil != err {
+		return nil, 0, errors.New(500, "GET_USER_V1_BOUND_PAGE_ERROR", err.Error())
+	}
+
+	result := make([]*biz.UserV1Bound, 0, len(rows))
+	for i := range rows {
+		result = append(result, toBizUserV1Bound(&rows[i]))
+	}
+	return result, uint64(total), nil
+}
+
 func decimalOrZero(value string) string {
 	if "" == strings.TrimSpace(value) {
 		return "0"
@@ -2227,6 +2488,7 @@ func (u *UserRepo) InsertUserV1Bound(ctx context.Context, iData *biz.UserV1Bound
 	s.RecommendCode = iData.RecommendCode
 	s.Amount = decimalOrZero(iData.Amount)
 	s.AmountHistory = decimalOrZero(iData.AmountHistory)
+	s.InvestmentCount = iData.InvestmentCount
 	s.ChildrenAmount = decimalOrZero(iData.ChildrenAmount)
 	s.ChildrenAmountHistory = decimalOrZero(iData.ChildrenAmountHistory)
 	s.ChildrenAmountExtra = decimalOrZero(iData.ChildrenAmountExtra)
@@ -2342,12 +2604,14 @@ func createPerformanceEvent(ctx context.Context, db *gorm.DB, table string, valu
 
 func (u *UserRepo) InsertUserV1StakeChanged(ctx context.Context, event *biz.UserV1StakeChanged) (bool, error) {
 	row := &UserV1StakeChanged{
-		BlockNumber: event.BlockNumber,
-		EventKey:    event.EventKey,
-		TxHash:      event.TxHash,
-		UserAddr:    event.UserAddr,
-		Amount:      event.Amount,
-		IsAdd:       event.IsAdd,
+		BlockNumber:      event.BlockNumber,
+		BlockTime:        event.BlockTime,
+		EventKey:         event.EventKey,
+		TxHash:           event.TxHash,
+		UserAddr:         event.UserAddr,
+		Amount:           event.Amount,
+		IsAdd:            event.IsAdd,
+		InvestmentNumber: event.InvestmentNumber,
 	}
 	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "user_v1_stake_changed_event", row)
 	if nil != err {
@@ -2355,6 +2619,98 @@ func (u *UserRepo) InsertUserV1StakeChanged(ctx context.Context, event *biz.User
 	}
 	event.ID = row.ID
 	return inserted, nil
+}
+
+func (u *UserRepo) GetUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock, limit uint64) ([]uint64, error) {
+	var blockNumbers []uint64
+	if err := u.data.DB(ctx).Table("user_v1_stake_changed_event").
+		Distinct("block_number").
+		Where("is_add = 1 AND block_time = 0 AND block_number >= ?", fromBlock).
+		Order("block_number asc").
+		Limit(int(limit)).
+		Pluck("block_number", &blockNumbers).Error; nil != err {
+		return nil, errors.New(500, "GET_USER_V1_STAKE_BLOCKS_WITHOUT_TIME_ERROR", err.Error())
+	}
+	return blockNumbers, nil
+}
+
+func (u *UserRepo) CountUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock uint64) (uint64, error) {
+	var count int64
+	if err := u.data.DB(ctx).Table("user_v1_stake_changed_event").
+		Where("is_add = 1 AND block_time = 0 AND block_number >= ?", fromBlock).
+		Distinct("block_number").Count(&count).Error; nil != err {
+		return 0, errors.New(500, "COUNT_USER_V1_STAKE_BLOCKS_WITHOUT_TIME_ERROR", err.Error())
+	}
+	return uint64(count), nil
+}
+
+func (u *UserRepo) UpdateUserV1StakeChangedBlockTimes(ctx context.Context, blockTimes map[uint64]uint64) error {
+	for blockNumber, blockTime := range blockTimes {
+		if 0 == blockTime {
+			return errors.New(500, "UPDATE_USER_V1_STAKE_BLOCK_TIME_ERROR", fmt.Sprintf("block %d time is zero", blockNumber))
+		}
+		if err := u.data.DB(ctx).Table("user_v1_stake_changed_event").
+			Where("block_number = ? AND block_time = 0", blockNumber).
+			Update("block_time", blockTime).Error; nil != err {
+			return errors.New(500, "UPDATE_USER_V1_STAKE_BLOCK_TIME_ERROR", err.Error())
+		}
+	}
+	return nil
+}
+
+func (u *UserRepo) GetUserV1StakeAddEvents(ctx context.Context) ([]*biz.UserV1StakeChanged, error) {
+	var rows []UserV1StakeChanged
+	if err := u.data.DB(ctx).Table("user_v1_stake_changed_event").
+		Select("id, user_addr").
+		Where("is_add = 1").
+		Order("user_addr asc, block_number asc, id asc").
+		Find(&rows).Error; nil != err {
+		return nil, errors.New(500, "GET_USER_V1_STAKE_ADD_EVENTS_ERROR", err.Error())
+	}
+	result := make([]*biz.UserV1StakeChanged, 0, len(rows))
+	for i := range rows {
+		result = append(result, &biz.UserV1StakeChanged{ID: rows[i].ID, UserAddr: rows[i].UserAddr})
+	}
+	return result, nil
+}
+
+func (u *UserRepo) UpdateUserV1StakeInvestmentNumber(ctx context.Context, eventID, investmentNumber uint64) error {
+	if err := u.data.DB(ctx).Table("user_v1_stake_changed_event").
+		Where("id = ? AND is_add = 1", eventID).
+		Update("investment_number", investmentNumber).Error; nil != err {
+		return errors.New(500, "UPDATE_USER_V1_STAKE_INVESTMENT_NUMBER_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) RepairUserV1InvestmentCount(ctx context.Context) (uint64, uint64, error) {
+	repairSQL := `
+UPDATE user_v1_bound_event AS u
+LEFT JOIN (
+  SELECT user_addr, COUNT(*) AS investment_count
+  FROM user_v1_stake_changed_event
+  WHERE is_add = 1
+  GROUP BY user_addr
+) AS s ON s.user_addr = u.user_addr
+SET u.investment_count = COALESCE(s.investment_count, 0)`
+	if err := u.data.DB(ctx).Exec(repairSQL).Error; nil != err {
+		return 0, 0, errors.New(500, "REPAIR_USER_V1_INVESTMENT_COUNT_ERROR", err.Error())
+	}
+
+	var result struct {
+		UserCount  uint64
+		OrderCount uint64
+	}
+	countSQL := `
+SELECT
+  COUNT(*) AS user_count,
+  CAST(COALESCE(SUM(investment_count), 0) AS UNSIGNED) AS order_count
+FROM user_v1_bound_event
+WHERE investment_count > 0`
+	if err := u.data.DB(ctx).Raw(countSQL).Scan(&result).Error; nil != err {
+		return 0, 0, errors.New(500, "COUNT_USER_V1_INVESTMENT_ERROR", err.Error())
+	}
+	return result.UserCount, result.OrderCount, nil
 }
 
 func (u *UserRepo) InsertUserV1ExtraChanged(ctx context.Context, event *biz.UserV1ExtraChanged) (bool, error) {
@@ -2448,6 +2804,528 @@ func (u *UserRepo) InsertStakingV1LineClaimed(ctx context.Context, event *biz.St
 	return inserted, nil
 }
 
+func (u *UserRepo) InsertStakingV1OrderEvent(ctx context.Context, event *biz.StakingV1OrderEvent) (bool, error) {
+	var (
+		inserted bool
+		err      error
+		id       uint64
+	)
+	db := u.data.DB(ctx)
+	switch event.EventType {
+	case biz.StakingV1OrderEventCreated:
+		row := &StakingV1OrderCreated{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID,
+			Amount: decimalOrZero(event.Amount), Cap: decimalOrZero(event.Cap), PlanID: decimalOrZero(event.PlanID), DaysCount: event.DaysCount,
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_created_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventEntered:
+		row := &StakingV1OrderEntered{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID, StartTime: event.StartTime,
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_entered_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventExited:
+		row := &StakingV1OrderExited{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID,
+			Amount: decimalOrZero(event.Amount), Used: decimalOrZero(event.Used),
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_exited_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventCapSet:
+		row := &StakingV1OrderCapSet{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID,
+			UserOrderIndex: decimalOrZero(event.UserOrderIndex), OldCap: decimalOrZero(event.OldCap), NewCap: decimalOrZero(event.NewCap),
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_cap_set_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventQueued:
+		row := &StakingV1OrderQueued{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID,
+			QueueIndex: decimalOrZero(event.QueueIndex), QueueLiqU: decimalOrZero(event.QueueLiqU), QueuedAt: event.QueuedAt,
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_queued_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventQueueDone:
+		row := &StakingV1OrderQueueDone{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			OrderID: event.OrderID, UserAddr: event.UserAddr, UserID: event.UserID,
+			QueueIndex: decimalOrZero(event.QueueIndex), QueueLiqU: decimalOrZero(event.QueueLiqU),
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_order_queue_done_event", row)
+		id = row.ID
+	case biz.StakingV1OrderEventPlanSet:
+		row := &StakingV1PlanSet{
+			BlockNumber: event.BlockNumber, EventKey: event.EventKey, TxHash: event.TxHash,
+			PlanID: decimalOrZero(event.PlanID), MinAmount: decimalOrZero(event.MinAmount),
+			MaxAmount: decimalOrZero(event.MaxAmount), OutAmount: decimalOrZero(event.OutAmount),
+			DaysCount: event.DaysCount, Enabled: event.Enabled,
+		}
+		inserted, err = createPerformanceEvent(ctx, db, "staking_v1_plan_set_event", row)
+		id = row.ID
+	default:
+		return false, errors.New(500, "CREATE_STAKING_V1_ORDER_EVENT_ERROR", fmt.Sprintf("unknown event type %q", event.EventType))
+	}
+	if nil != err {
+		return false, errors.New(500, "CREATE_STAKING_V1_ORDER_EVENT_ERROR", err.Error())
+	}
+	event.ID = id
+	return inserted, nil
+}
+
+func (u *UserRepo) ensureStakingV1Order(ctx context.Context, orderID string, userID uint64, userAddr string) error {
+	row := &StakingV1Order{
+		OrderID: orderID, UserID: userID, UserAddr: userAddr, Status: biz.StakingV1OrderStatusQueued,
+		UserOrderIndex: "0", Amount: "0", BaseCap: "0", Cap: "0", Used: "0", Remaining: "0",
+		Compensation: "0", LinePaid: "0", LineClaimable: "0", PlanID: "0", QueueIndex: "0", QueueLiqU: "0",
+	}
+	if err := u.data.DB(ctx).Table("staking_v1_order").Clauses(clause.OnConflict{DoNothing: true}).Create(row).Error; nil != err {
+		return errors.New(500, "ENSURE_STAKING_V1_ORDER_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) ApplyStakingV1OrderEvent(ctx context.Context, event *biz.StakingV1OrderEvent) error {
+	if biz.StakingV1OrderEventPlanSet == event.EventType {
+		return nil
+	}
+	if err := u.ensureStakingV1Order(ctx, event.OrderID, event.UserID, event.UserAddr); nil != err {
+		return err
+	}
+	db := u.data.DB(ctx).Table("staking_v1_order").Where("order_id = ?", event.OrderID)
+	base := map[string]interface{}{"user_id": event.UserID, "user_addr": event.UserAddr}
+	var result *gorm.DB
+	switch event.EventType {
+	case biz.StakingV1OrderEventCreated:
+		// remaining must inspect the pre-creation cap. Keep it in its own
+		// statement because MySQL evaluates single-table UPDATE assignments
+		// from left to right and GORM sorts map keys alphabetically.
+		if err := db.Update("remaining", gorm.Expr("IF(cap = 0, CAST(? AS DECIMAL(65,18)), remaining)", decimalOrZero(event.Cap))).Error; nil != err {
+			return errors.New(500, "APPLY_STAKING_V1_ORDER_EVENT_ERROR", err.Error())
+		}
+		base["amount"] = decimalOrZero(event.Amount)
+		base["base_cap"] = decimalOrZero(event.Cap)
+		base["cap"] = gorm.Expr("IF(cap = 0, CAST(? AS DECIMAL(65,18)), cap)", decimalOrZero(event.Cap))
+		base["plan_id"] = decimalOrZero(event.PlanID)
+		base["days_count"] = event.DaysCount
+		base["created_block"] = event.BlockNumber
+		base["line_paid"] = gorm.Expr("COALESCE((SELECT SUM(gross_u) FROM staking_v1_line_claimed_event WHERE order_id = ?), line_paid)", event.OrderID)
+		if "" != strings.TrimSpace(event.UserOrderIndex) {
+			base["user_order_index"] = event.UserOrderIndex
+		}
+		result = db.Updates(base)
+	case biz.StakingV1OrderEventEntered:
+		base["start_time"] = event.StartTime
+		base["created_time"] = gorm.Expr("IF(created_time = 0, ?, created_time)", event.StartTime)
+		base["entered_block"] = event.BlockNumber
+		base["status"] = gorm.Expr("IF(status = ?, status, ?)", biz.StakingV1OrderStatusExited, biz.StakingV1OrderStatusRunning)
+		result = db.Updates(base)
+	case biz.StakingV1OrderEventExited:
+		usedAmount := decimalOrZero(event.Used)
+		base["amount"] = decimalOrZero(event.Amount)
+		base["used"] = usedAmount
+		// A natural exit consumes the full dynamic cap, so used can recover the
+		// final cap and compensation. An administrative setOrderCap may instead
+		// lower cap below used and emit CapSet immediately before Exit in the same
+		// transaction; in that case the preceding CapSet values are authoritative.
+		sameTxCapSet := "EXISTS (SELECT 1 FROM staking_v1_order_cap_set_event AS c WHERE c.order_id = ? AND c.tx_hash = ?)"
+		base["cap"] = gorm.Expr("IF("+sameTxCapSet+", cap, CAST(? AS DECIMAL(65,18)))", event.OrderID, event.TxHash, usedAmount)
+		base["compensation"] = gorm.Expr("IF("+sameTxCapSet+", compensation, GREATEST(CAST(? AS DECIMAL(65,18)) - base_cap, 0))", event.OrderID, event.TxHash, usedAmount)
+		base["remaining"] = "0"
+		base["line_claimable"] = "0"
+		base["status"] = biz.StakingV1OrderStatusExited
+		base["exited_block"] = event.BlockNumber
+		base["line_paid"] = gorm.Expr("COALESCE((SELECT SUM(gross_u) FROM staking_v1_line_claimed_event WHERE order_id = ?), line_paid)", event.OrderID)
+		result = db.Updates(base)
+	case biz.StakingV1OrderEventCapSet:
+		newCap := decimalOrZero(event.NewCap)
+		// setOrderCap directly replaces o.cap. Compensation is a separate
+		// dynamic value, so preserve the last known compensation instead of
+		// treating newCap-oldCap as compensation.
+		base["base_cap"] = newCap
+		base["cap"] = gorm.Expr("CAST(? AS DECIMAL(65,18)) + compensation", newCap)
+		base["remaining"] = gorm.Expr("IF(status = ?, 0, GREATEST(CAST(? AS DECIMAL(65,18)) + compensation - used, 0))", biz.StakingV1OrderStatusExited, newCap)
+		if "" != strings.TrimSpace(event.UserOrderIndex) {
+			base["user_order_index"] = event.UserOrderIndex
+		}
+		result = db.Updates(base)
+	case biz.StakingV1OrderEventQueued:
+		base["queue_index"] = decimalOrZero(event.QueueIndex)
+		base["queue_liq_u"] = decimalOrZero(event.QueueLiqU)
+		base["queued_at"] = event.QueuedAt
+		base["created_time"] = gorm.Expr("IF(created_time = 0, ?, created_time)", event.QueuedAt)
+		base["queue_done"] = false
+		base["status"] = gorm.Expr("IF(status > ?, status, ?)", biz.StakingV1OrderStatusQueued, biz.StakingV1OrderStatusQueued)
+		result = db.Updates(base)
+	case biz.StakingV1OrderEventQueueDone:
+		base["queue_index"] = decimalOrZero(event.QueueIndex)
+		base["queue_liq_u"] = decimalOrZero(event.QueueLiqU)
+		base["queue_done"] = true
+		result = db.Updates(base)
+	default:
+		return errors.New(500, "APPLY_STAKING_V1_ORDER_EVENT_ERROR", fmt.Sprintf("unknown event type %q", event.EventType))
+	}
+	if nil != result.Error {
+		return errors.New(500, "APPLY_STAKING_V1_ORDER_EVENT_ERROR", result.Error.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) ApplyStakingV1OrderSnapshot(ctx context.Context, snapshot *biz.StakingV1OrderSnapshot) error {
+	if 0 == snapshot.LastSyncedBlock {
+		return errors.New(500, "APPLY_STAKING_V1_ORDER_SNAPSHOT_ERROR", "last synced block is zero")
+	}
+	if err := u.ensureStakingV1Order(ctx, snapshot.OrderID, snapshot.UserID, snapshot.UserAddr); nil != err {
+		return err
+	}
+	capAmount := decimalOrZero(snapshot.Cap)
+	usedAmount := decimalOrZero(snapshot.Used)
+	remaining := snapshot.Remaining
+	if "" == strings.TrimSpace(remaining) {
+		remaining = "0"
+	}
+	updates := map[string]interface{}{
+		"user_id": snapshot.UserID, "user_addr": snapshot.UserAddr,
+		"amount": decimalOrZero(snapshot.Amount), "cap": capAmount, "used": usedAmount,
+		"remaining": remaining, "line_paid": decimalOrZero(snapshot.LinePaid), "line_claimable": decimalOrZero(snapshot.LineClaimable),
+		"created_time": snapshot.CreatedTime, "start_time": snapshot.StartTime,
+		"claim_effective": snapshot.ClaimEffective, "days_count": snapshot.DaysCount,
+		"status": snapshot.Status, "last_synced_block": snapshot.LastSyncedBlock,
+	}
+	// The order view does not always return queue metadata. Preserve the
+	// event-derived queue state unless the caller explicitly supplied it.
+	if "" != strings.TrimSpace(snapshot.QueueIndex) || "" != strings.TrimSpace(snapshot.QueueLiqU) || 0 < snapshot.QueuedAt || snapshot.QueueDone {
+		updates["queue_index"] = decimalOrZero(snapshot.QueueIndex)
+		updates["queue_liq_u"] = decimalOrZero(snapshot.QueueLiqU)
+		updates["queued_at"] = snapshot.QueuedAt
+		updates["queue_done"] = snapshot.QueueDone
+	}
+	if "" == strings.TrimSpace(snapshot.Remaining) {
+		updates["remaining"] = gorm.Expr("GREATEST(CAST(? AS DECIMAL(65,18)) - CAST(? AS DECIMAL(65,18)), 0)", capAmount, usedAmount)
+	}
+	if "" != strings.TrimSpace(snapshot.Compensation) {
+		updates["compensation"] = snapshot.Compensation
+	} else {
+		updates["compensation"] = gorm.Expr("GREATEST(CAST(? AS DECIMAL(65,18)) - base_cap, 0)", capAmount)
+	}
+	if "" != strings.TrimSpace(snapshot.BaseCap) {
+		updates["base_cap"] = snapshot.BaseCap
+	}
+	if "" != strings.TrimSpace(snapshot.PlanID) {
+		updates["plan_id"] = snapshot.PlanID
+	}
+	if "" != strings.TrimSpace(snapshot.UserOrderIndex) {
+		updates["user_order_index"] = snapshot.UserOrderIndex
+	}
+	if 0 < snapshot.CreatedBlock {
+		updates["created_block"] = snapshot.CreatedBlock
+	}
+	if 0 < snapshot.EnteredBlock {
+		updates["entered_block"] = snapshot.EnteredBlock
+	}
+	if 0 < snapshot.ExitedBlock {
+		updates["exited_block"] = snapshot.ExitedBlock
+	}
+	result := u.data.DB(ctx).Table("staking_v1_order").
+		Where("order_id = ? AND last_synced_block <= ?", snapshot.OrderID, snapshot.LastSyncedBlock).
+		Updates(updates)
+	if nil != result.Error {
+		return errors.New(500, "APPLY_STAKING_V1_ORDER_SNAPSHOT_ERROR", result.Error.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) MarkStakingV1OrderUsersForSnapshot(ctx context.Context, users []*biz.StakingV1OrderUser) error {
+	if 0 == len(users) {
+		return nil
+	}
+	addresses := make([]string, 0, len(users))
+	seen := make(map[string]struct{}, len(users))
+	for _, user := range users {
+		if nil == user {
+			continue
+		}
+		address := strings.ToLower(strings.TrimSpace(user.UserAddr))
+		if "" == address {
+			continue
+		}
+		if _, ok := seen[address]; ok {
+			continue
+		}
+		seen[address] = struct{}{}
+		addresses = append(addresses, address)
+	}
+	if 0 == len(addresses) {
+		return nil
+	}
+	if err := u.data.DB(ctx).Table("staking_v1_order").
+		Where("user_addr IN ? AND status <> ?", addresses, biz.StakingV1OrderStatusExited).
+		Update("last_synced_block", 0).Error; nil != err {
+		return errors.New(500, "MARK_STAKING_V1_ORDER_SNAPSHOT_ERROR", err.Error())
+	}
+	return nil
+}
+
+func toBizStakingV1Order(row *StakingV1Order) *biz.StakingV1Order {
+	if nil == row {
+		return nil
+	}
+	return &biz.StakingV1Order{
+		ID: row.ID, OrderID: row.OrderID, UserID: row.UserID, UserAddr: row.UserAddr, UserOrderIndex: row.UserOrderIndex,
+		Amount: row.Amount, BaseCap: row.BaseCap, Cap: row.Cap, Used: row.Used, Remaining: row.Remaining,
+		Compensation: row.Compensation, LinePaid: row.LinePaid, LineClaimable: row.LineClaimable, PlanID: row.PlanID,
+		CreatedTime: row.CreatedTime, StartTime: row.StartTime, ClaimEffective: row.ClaimEffective,
+		DaysCount: row.DaysCount, Status: row.Status, QueueIndex: row.QueueIndex, QueueLiqU: row.QueueLiqU,
+		QueuedAt: row.QueuedAt, QueueDone: row.QueueDone, CreatedBlock: row.CreatedBlock,
+		EnteredBlock: row.EnteredBlock, ExitedBlock: row.ExitedBlock, LastSyncedBlock: row.LastSyncedBlock,
+		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func (u *UserRepo) GetStakingV1OrderByOrderID(ctx context.Context, orderID string) (*biz.StakingV1Order, error) {
+	var row StakingV1Order
+	if err := u.data.DB(ctx).Table("staking_v1_order").Where("order_id = ?", orderID).First(&row).Error; nil != err {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "GET_STAKING_V1_ORDER_ERROR", err.Error())
+	}
+	return toBizStakingV1Order(&row), nil
+}
+
+func (u *UserRepo) GetActiveStakingV1OrdersByAddress(ctx context.Context, address string) ([]*biz.StakingV1Order, error) {
+	var rows []StakingV1Order
+	if err := u.data.DB(ctx).Table("staking_v1_order").
+		Where("user_addr = ? AND status <> ?", address, biz.StakingV1OrderStatusExited).
+		Order("order_id asc").Find(&rows).Error; nil != err {
+		return nil, errors.New(500, "GET_ACTIVE_STAKING_V1_ORDERS_ERROR", err.Error())
+	}
+	result := make([]*biz.StakingV1Order, 0, len(rows))
+	for i := range rows {
+		result = append(result, toBizStakingV1Order(&rows[i]))
+	}
+	return result, nil
+}
+
+func (u *UserRepo) GetStakingV1OrderPage(ctx context.Context, query *biz.StakingV1OrderQuery) ([]*biz.StakingV1Order, uint64, error) {
+	db := u.data.DB(ctx).Table("staking_v1_order")
+	if 0 < query.UserID {
+		db = db.Where("user_id = ?", query.UserID)
+	}
+	if "" != query.Address {
+		db = db.Where("user_addr = ?", query.Address)
+	}
+	if 0 < query.Status {
+		db = db.Where("status = ?", query.Status)
+	}
+	var total int64
+	if err := db.Count(&total).Error; nil != err {
+		return nil, 0, errors.New(500, "COUNT_STAKING_V1_ORDER_PAGE_ERROR", err.Error())
+	}
+	page := query.Page
+	if 0 == page {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if 0 == pageSize {
+		pageSize = 20
+	}
+	orderColumn := "order_id"
+	switch query.OrderBy {
+	case "id":
+		orderColumn = "id"
+	case "order_id":
+		orderColumn = "order_id"
+	case "amount":
+		orderColumn = "amount"
+	case "cap":
+		orderColumn = "cap"
+	case "used":
+		orderColumn = "used"
+	case "remaining":
+		orderColumn = "remaining"
+	case "created_time":
+		orderColumn = "created_time"
+	case "start_time":
+		orderColumn = "start_time"
+	case "updated_at":
+		orderColumn = "updated_at"
+	}
+	orderDirection := "DESC"
+	if "asc" == strings.ToLower(query.Order) {
+		orderDirection = "ASC"
+	}
+	orderSQL := fmt.Sprintf("`%s` %s, `id` %s", orderColumn, orderDirection, orderDirection)
+	var rows []StakingV1Order
+	if err := db.Order(orderSQL).Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&rows).Error; nil != err {
+		return nil, 0, errors.New(500, "GET_STAKING_V1_ORDER_PAGE_ERROR", err.Error())
+	}
+	result := make([]*biz.StakingV1Order, 0, len(rows))
+	for i := range rows {
+		result = append(result, toBizStakingV1Order(&rows[i]))
+	}
+	return result, uint64(total), nil
+}
+
+func (u *UserRepo) GetStakingV1OrderUsersNeedingSnapshot(ctx context.Context, limit uint64) ([]*biz.StakingV1OrderUser, error) {
+	if 0 == limit {
+		limit = 100
+	}
+	var rows []struct {
+		UserID   uint64
+		UserAddr string
+	}
+	if err := u.data.DB(ctx).Table("staking_v1_order").Select("user_id, user_addr").
+		Where("status <> ? AND last_synced_block = 0", biz.StakingV1OrderStatusExited).
+		Group("user_id, user_addr").Order("user_id asc").Limit(int(limit)).Find(&rows).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_ORDER_SNAPSHOT_USERS_ERROR", err.Error())
+	}
+	result := make([]*biz.StakingV1OrderUser, 0, len(rows))
+	for i := range rows {
+		result = append(result, &biz.StakingV1OrderUser{UserID: rows[i].UserID, UserAddr: rows[i].UserAddr})
+	}
+	return result, nil
+}
+
+func (u *UserRepo) CountStakingV1OrderUsersNeedingSnapshot(ctx context.Context) (uint64, error) {
+	var count int64
+	if err := u.data.DB(ctx).Table("staking_v1_order").
+		Where("status <> ? AND last_synced_block = 0", biz.StakingV1OrderStatusExited).
+		Distinct("user_id").Count(&count).Error; nil != err {
+		return 0, errors.New(500, "COUNT_STAKING_V1_ORDER_SNAPSHOT_USERS_ERROR", err.Error())
+	}
+	return uint64(count), nil
+}
+
+func (u *UserRepo) GetStakingV1PlanDaysCounts(ctx context.Context) (map[string]uint32, error) {
+	var rows []StakingV1PlanSet
+	query := `
+SELECT p.plan_id, p.days_count
+FROM staking_v1_plan_set_event AS p
+JOIN (
+  SELECT plan_id, MAX(id) AS id
+  FROM staking_v1_plan_set_event
+  GROUP BY plan_id
+) AS latest ON latest.id = p.id`
+	if err := u.data.DB(ctx).Raw(query).Scan(&rows).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_PLAN_DAYS_ERROR", err.Error())
+	}
+	result := make(map[string]uint32, len(rows))
+	for i := range rows {
+		result[rows[i].PlanID] = rows[i].DaysCount
+	}
+	return result, nil
+}
+
+func (u *UserRepo) IncrementExitedStakingV1OrderLinePaid(ctx context.Context, orderID, grossU string, eventBlock uint64) error {
+	if "" == strings.TrimSpace(orderID) {
+		return nil
+	}
+	if err := u.data.DB(ctx).Table("staking_v1_order").
+		Where("order_id = ? AND (last_synced_block = 0 OR last_synced_block < ?)", orderID, eventBlock).
+		Update("line_paid", decimalAdd("line_paid", decimalOrZero(grossU))).Error; nil != err {
+		return errors.New(500, "UPDATE_EXITED_STAKING_V1_ORDER_LINE_PAID_ERROR", err.Error())
+	}
+	return nil
+}
+
+func (u *UserRepo) RepairStakingV1OrderLinePaid(ctx context.Context) (uint64, error) {
+	query := `
+UPDATE staking_v1_order AS o
+LEFT JOIN (
+  SELECT order_id, SUM(gross_u) AS line_paid
+  FROM staking_v1_line_claimed_event
+  GROUP BY order_id
+) AS l ON l.order_id = o.order_id
+SET o.line_paid = COALESCE(l.line_paid, 0),
+    o.remaining = IF(o.status = 3, 0, o.remaining),
+    o.line_claimable = IF(o.status = 3, 0, o.line_claimable)`
+	result := u.data.DB(ctx).Exec(query)
+	if nil != result.Error {
+		return 0, errors.New(500, "REPAIR_STAKING_V1_ORDER_LINE_PAID_ERROR", result.Error.Error())
+	}
+	return uint64(result.RowsAffected), nil
+}
+
+func (u *UserRepo) GetStakingV1OrderIntegrity(ctx context.Context) (*biz.StakingV1OrderIntegrity, error) {
+	query := `
+SELECT
+  (SELECT COUNT(*)
+     FROM staking_v1_order AS o
+     LEFT JOIN staking_v1_order_created_event AS c ON c.order_id = o.order_id
+    WHERE c.id IS NULL) AS master_without_created,
+  (SELECT COUNT(*)
+     FROM staking_v1_order_created_event AS c
+     LEFT JOIN staking_v1_order AS o ON o.order_id = c.order_id
+    WHERE o.id IS NULL) AS created_without_master,
+  (SELECT COUNT(*)
+     FROM staking_v1_order AS o
+     LEFT JOIN staking_v1_order_exited_event AS e ON e.order_id = o.order_id
+    WHERE o.status = 3 AND e.id IS NULL) AS exited_without_exit,
+  (SELECT COUNT(*)
+     FROM staking_v1_order_exited_event AS e
+     LEFT JOIN staking_v1_order AS o ON o.order_id = e.order_id
+    WHERE o.id IS NULL OR o.status <> 3) AS exit_not_marked_exited,
+  (SELECT COUNT(*)
+     FROM staking_v1_order AS o
+     LEFT JOIN staking_v1_order_entered_event AS e ON e.order_id = o.order_id
+    WHERE o.status = 2 AND e.id IS NULL) AS running_without_entered,
+  (SELECT COUNT(*)
+     FROM staking_v1_order AS o
+     JOIN staking_v1_order_entered_event AS e ON e.order_id = o.order_id
+    WHERE o.status = 1) AS queued_with_entered,
+  (SELECT COUNT(*)
+     FROM staking_v1_order_queue_done_event AS d
+     LEFT JOIN staking_v1_order_queued_event AS q ON q.order_id = d.order_id
+    WHERE q.id IS NULL) AS queue_done_without_queued,
+  (SELECT COUNT(*)
+     FROM staking_v1_order_queue_done_event AS d
+     LEFT JOIN staking_v1_order_entered_event AS e ON e.order_id = d.order_id
+    WHERE e.id IS NULL) AS queue_done_without_entered,
+  (SELECT COUNT(*)
+     FROM (
+       SELECT order_id, user_id, user_addr FROM staking_v1_order_entered_event
+       UNION ALL SELECT order_id, user_id, user_addr FROM staking_v1_order_exited_event
+       UNION ALL SELECT order_id, user_id, user_addr FROM staking_v1_order_cap_set_event
+       UNION ALL SELECT order_id, user_id, user_addr FROM staking_v1_order_queued_event
+       UNION ALL SELECT order_id, user_id, user_addr FROM staking_v1_order_queue_done_event
+     ) AS lifecycle
+     LEFT JOIN staking_v1_order_created_event AS c ON c.order_id = lifecycle.order_id
+    WHERE c.id IS NULL OR c.user_id <> lifecycle.user_id OR c.user_addr <> lifecycle.user_addr) AS lifecycle_identity_mismatch,
+  (SELECT COUNT(*)
+     FROM staking_v1_order AS o
+     JOIN staking_v1_order_created_event AS c ON c.order_id = o.order_id
+    WHERE o.user_id <> c.user_id
+       OR o.user_addr <> c.user_addr
+       OR o.created_block <> c.block_number
+       OR o.amount <> c.amount
+       OR o.plan_id <> c.plan_id
+       OR o.days_count <> c.days_count) AS master_created_mismatch,
+  (SELECT COUNT(*)
+     FROM (
+       SELECT order_id FROM staking_v1_order_created_event
+       GROUP BY order_id HAVING COUNT(*) <> 1
+     ) AS duplicate_created) AS duplicate_created_order_id,
+  (SELECT COUNT(*)
+     FROM (
+       SELECT order_id FROM staking_v1_order_exited_event
+       GROUP BY order_id HAVING COUNT(*) <> 1
+     ) AS duplicate_exit) AS duplicate_exit_order_id,
+  (SELECT COUNT(*) FROM staking_v1_order_created_event) AS created_count,
+  CAST(COALESCE((SELECT MIN(order_id) FROM staking_v1_order_created_event), 0) AS CHAR) AS min_created_order_id,
+  CAST(COALESCE((SELECT MAX(order_id) FROM staking_v1_order_created_event), 0) AS CHAR) AS max_created_order_id`
+	result := &biz.StakingV1OrderIntegrity{}
+	if err := u.data.DB(ctx).Raw(query).Scan(result).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_ORDER_INTEGRITY_ERROR", err.Error())
+	}
+	return result, nil
+}
+
 func decimalAdd(column string, amount string) clause.Expr {
 	return gorm.Expr(column+" + CAST(? AS DECIMAL(65,18))", amount)
 }
@@ -2459,8 +3337,9 @@ func decimalSub(column string, amount string) clause.Expr {
 func (u *UserRepo) UpdateUserV1StakeAmount(ctx context.Context, userID uint64, amount string, isAdd bool) error {
 	if isAdd {
 		updates := map[string]interface{}{
-			"amount":         decimalAdd("amount", amount),
-			"amount_history": decimalAdd("amount_history", amount),
+			"amount":           decimalAdd("amount", amount),
+			"amount_history":   decimalAdd("amount_history", amount),
+			"investment_count": gorm.Expr("investment_count + 1"),
 		}
 		if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).Updates(updates).Error; nil != err {
 			return errors.New(500, "UPDATE_USER_V1_STAKE_AMOUNT_ERROR", err.Error())
@@ -2582,7 +3461,7 @@ func (u *UserRepo) UpdateUserV1LevelReward(ctx context.Context, userID uint64, a
 
 func (u *UserRepo) ResetUserV1Performance(ctx context.Context) error {
 	columns := []string{
-		"amount", "amount_history", "children_amount", "children_amount_history", "children_amount_extra",
+		"amount", "amount_history", "investment_count", "children_amount", "children_amount_history", "children_amount_extra",
 		"reward_recommend_amount", "reward_recommend_pay", "reward_recommend_store_amount", "reward_recommend_fee",
 		"reward_recommend_team_u_amount", "reward_recommend_claimed_team_u_net", "reward_recommend_claimed_team_u_amount",
 		"reward_recommend_claimed_team_u_fee", "reward_recommend_expired", "line_u", "line_coin_u", "line_coin",

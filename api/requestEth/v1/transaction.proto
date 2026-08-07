@@ -325,6 +325,42 @@ service Transaction {
     };
   }
 
+  rpc GetUserOverview (GetUserOverviewRequest) returns (GetUserOverviewReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_overview"
+    };
+  }
+
+  rpc GetUserList (GetUserListRequest) returns (GetUserListReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_list"
+    };
+  }
+
+  rpc RecoverUserInvestmentData (GetUserREventRequest) returns (RecoverUserInvestmentDataReply) {
+    option (google.api.http) = {
+      get: "/api/recover_user_investment_data"
+    };
+  }
+
+  rpc GetStakingOrderEvent (GetUserREventRequest) returns (GetUserREventReply) {
+    option (google.api.http) = {
+      get: "/api/get_staking_order_event"
+    };
+  }
+
+  rpc RecoverStakingOrderEvent (GetUserREventRequest) returns (RecoverStakingOrderEventReply) {
+    option (google.api.http) = {
+      get: "/api/recover_staking_order_event"
+    };
+  }
+
+  rpc GetStakingOrderList (GetStakingOrderListRequest) returns (GetStakingOrderListReply) {
+    option (google.api.http) = {
+      get: "/api/get_staking_order_list"
+    };
+  }
+
   rpc GetExchangeList (GetExchangeListRequest) returns (GetExchangeListReply) {
     option (google.api.http) = {
       get: "/api/get_exchange_list"
@@ -742,7 +778,6 @@ message GetUserREventRequest {
 message GetUserREventReply {
 }
 
-
 message GetExchangeListRequest {
   uint64 start = 1;
   uint64 end = 2;
@@ -910,4 +945,135 @@ message GetAllInfoReply {
   string todayBuySum = 16; // 今日历史销售金额
 
   string openReward = 17; // 盲盒总盈利
+}
+
+message GetUserOverviewRequest {
+}
+
+message GetUserOverviewReply {
+  uint64 registeredUserCount = 1;
+  uint64 historicalInvestorCount = 2;
+  uint64 currentInvestorCount = 3;
+  uint64 currentAmountGte10000UserCount = 4;
+  uint64 historicalAmountGte10000UserCount = 5;
+  uint64 investmentCountGt2UserCount = 6;
+  string todayInvestmentAmount = 7;
+  uint64 todayInvestmentOrderCount = 8;
+  string yesterdayInvestmentAmount = 9;
+  uint64 yesterdayInvestmentOrderCount = 10;
+  string todayReinvestmentAmount = 11;
+}
+
+message GetUserListRequest {
+  uint64 page = 1;
+  uint64 pageSize = 2;
+  string minAmount = 3;
+  string orderBy = 4;
+  string order = 5;
+  string minChildrenAmount = 6;
+  uint64 userId = 7;
+  string address = 8;
+}
+
+message GetUserListReply {
+  uint64 total = 1;
+  uint64 page = 2;
+  uint64 pageSize = 3;
+  repeated User list = 4;
+
+  message User {
+    uint64 id = 1;
+    uint64 blockNumber = 2;
+    string userAddr = 3;
+    string parentAddr = 4;
+    string recommendCode = 5;
+    string amount = 6;
+    string amountHistory = 7;
+    uint64 investmentCount = 8;
+    string childrenAmount = 9;
+    string childrenAmountHistory = 10;
+    string childrenAmountExtra = 11;
+    string rewardRecommendAmount = 12;
+    string rewardRecommendPay = 13;
+    string rewardRecommendStoreAmount = 14;
+    string rewardRecommendFee = 15;
+    string rewardRecommendTeamUAmount = 16;
+    string rewardRecommendClaimedTeamUNet = 17;
+    string rewardRecommendClaimedTeamUAmount = 18;
+    string rewardRecommendClaimedTeamUFee = 19;
+    string rewardRecommendExpired = 20;
+    string lineU = 21;
+    string lineCoinU = 22;
+    string lineCoin = 23;
+    string lineFee = 24;
+    string levelReward = 25;
+    uint64 createdAt = 26;
+    uint64 updatedAt = 27;
+  }
+}
+
+message RecoverUserInvestmentDataReply {
+  uint64 repairedBlockCount = 1;
+  uint64 investmentUserCount = 2;
+  uint64 investmentOrderCount = 3;
+  uint64 remainingBlockCount = 4;
+  bool finished = 5;
+}
+
+message RecoverStakingOrderEventReply {
+  uint64 lastProcessedBlock = 1;
+  uint64 safeHead = 2;
+  bool eventFinished = 3;
+  uint64 remainingSnapshotUserCount = 4;
+  bool finished = 5;
+}
+
+message GetStakingOrderListRequest {
+  uint64 page = 1;
+  uint64 pageSize = 2;
+  uint64 userId = 3;
+  string address = 4;
+  uint32 status = 5; // 0全部，1排队中，2进行中，3已离场
+  string orderBy = 6;
+  string order = 7;
+}
+
+message GetStakingOrderListReply {
+  uint64 total = 1;
+  uint64 page = 2;
+  uint64 pageSize = 3;
+  repeated Order list = 4;
+
+  message Order {
+    uint64 id = 1;
+    string orderId = 2;
+    uint64 userId = 3;
+    string userAddr = 4;
+    uint64 userOrderIndex = 5;
+    string amount = 6;
+    string baseCap = 7;
+    string cap = 8;
+    string used = 9;
+    string remaining = 10;
+    string compensation = 11;
+    string linePaid = 12;
+    string lineClaimable = 13;
+    uint64 planId = 14;
+    uint64 createdTime = 15;
+    uint64 startTime = 16;
+    uint64 claimEffective = 17;
+    uint32 daysCount = 18;
+    uint32 status = 19;
+    string statusName = 20;
+    string queueIndex = 21;
+    string queueLiqU = 22;
+    uint64 queuedAt = 23;
+    bool queueDone = 24;
+    uint64 createdBlockNumber = 25;
+    uint64 enteredBlockNumber = 26;
+    uint64 exitedBlockNumber = 27;
+    uint64 lastSyncedBlock = 28;
+    uint64 createdAt = 29;
+    uint64 updatedAt = 30;
+  }
 }

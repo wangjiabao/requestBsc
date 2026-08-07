@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-kratos/kratos/v2/log"
+	"math/big"
 	pb "requestEth/api/requestEth/v1"
 	"strconv"
 	"strings"
@@ -250,6 +251,7 @@ type UserV1Bound struct {
 
 	Amount                            string
 	AmountHistory                     string
+	InvestmentCount                   uint64
 	ChildrenAmount                    string
 	ChildrenAmountHistory             string
 	ChildrenAmountExtra               string
@@ -287,23 +289,44 @@ type UserV1PerformanceSyncProgress struct {
 }
 
 const (
-	UserV1PerformanceStreamStake    = "stake_changed"
-	UserV1PerformanceStreamExtra    = "extra_changed"
-	UserV1PerformanceStreamReward   = "staking_reward"
-	UserV1PerformanceStreamRecovery = "recovery"
+	UserV1PerformanceStreamStake         = "stake_changed"
+	UserV1PerformanceStreamExtra         = "extra_changed"
+	UserV1PerformanceStreamReward        = "staking_reward"
+	UserV1PerformanceStreamOrder         = "staking_order"
+	UserV1PerformanceStreamOrderRecovery = "staking_order_recovery"
+	UserV1PerformanceStreamOrderTarget   = "staking_order_recovery_target"
+	UserV1PerformanceStreamRecovery      = "recovery"
 )
 
 type UserV1StakeChanged struct {
-	ID          uint64
-	BlockNumber uint64
-	LogIndex    uint
-	EventKey    string
-	TxHash      string
-	UserAddr    string
-	Amount      string
-	IsAdd       bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID               uint64
+	BlockNumber      uint64
+	BlockTime        uint64
+	LogIndex         uint
+	EventKey         string
+	TxHash           string
+	UserAddr         string
+	Amount           string
+	IsAdd            bool
+	InvestmentNumber uint64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type UserV1Overview struct {
+	RegisteredUserCount                  uint64
+	HistoricalInvestorCount              uint64
+	CurrentInvestorCount                 uint64
+	CurrentAmountGTE10000UserCount       uint64
+	HistoricalAmountGTE10000UserCount    uint64
+	InvestmentCountGT2UserCount          uint64
+	TodayInvestmentAmount                string
+	TodayInvestmentOrderCount            uint64
+	YesterdayInvestmentAmount            string
+	YesterdayInvestmentOrderCount        uint64
+	TodayReinvestmentAmount              string
+	MissingInvestmentBlockTimeEventCount uint64
+	MissingInvestmentNumberEventCount    uint64
 }
 
 type UserV1ExtraChanged struct {
@@ -351,6 +374,161 @@ type StakingV1Reward struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+const (
+	StakingV1OrderStatusQueued  uint8 = 1
+	StakingV1OrderStatusRunning uint8 = 2
+	StakingV1OrderStatusExited  uint8 = 3
+
+	StakingV1OrderEventCreated   = "created"
+	StakingV1OrderEventEntered   = "entered"
+	StakingV1OrderEventExited    = "exited"
+	StakingV1OrderEventCapSet    = "cap_set"
+	StakingV1OrderEventQueued    = "queued"
+	StakingV1OrderEventQueueDone = "queue_done"
+	StakingV1OrderEventPlanSet   = "plan_set"
+)
+
+// StakingV1Order is the latest locally known state of one staking order.
+// uint256 identifiers and token amounts stay as decimal strings so no chain
+// precision is lost before they are written to DECIMAL(65,0/18) columns.
+type StakingV1Order struct {
+	ID             uint64
+	OrderID        string
+	UserID         uint64
+	UserAddr       string
+	UserOrderIndex string
+
+	Amount        string
+	BaseCap       string
+	Cap           string
+	Used          string
+	Remaining     string
+	Compensation  string
+	LinePaid      string
+	LineClaimable string
+	PlanID        string
+
+	CreatedTime    uint64
+	StartTime      uint64
+	ClaimEffective uint64
+	DaysCount      uint32
+	Status         uint8
+
+	QueueIndex string
+	QueueLiqU  string
+	QueuedAt   uint64
+	QueueDone  bool
+
+	CreatedBlock    uint64
+	EnteredBlock    uint64
+	ExitedBlock     uint64
+	LastSyncedBlock uint64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// StakingV1OrderEvent is the common in-memory representation of the order and
+// plan lifecycle events. Only the fields belonging to EventType are persisted.
+type StakingV1OrderEvent struct {
+	ID          uint64
+	BlockNumber uint64
+	LogIndex    uint
+	EventKey    string
+	TxHash      string
+	EventType   string
+	OrderID     string
+	UserAddr    string
+	UserID      uint64
+
+	UserOrderIndex string
+	Amount         string
+	Cap            string
+	PlanID         string
+	MinAmount      string
+	MaxAmount      string
+	OutAmount      string
+	DaysCount      uint32
+	Enabled        bool
+	StartTime      uint64
+	Used           string
+	OldCap         string
+	NewCap         string
+	QueueIndex     string
+	QueueLiqU      string
+	QueuedAt       uint64
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// StakingV1OrderSnapshot contains an absolute state read from the contract.
+// Applying a snapshot is monotonic by LastSyncedBlock.
+type StakingV1OrderSnapshot struct {
+	OrderID        string
+	UserID         uint64
+	UserAddr       string
+	UserOrderIndex string
+
+	Amount        string
+	BaseCap       string
+	Cap           string
+	Used          string
+	Remaining     string
+	Compensation  string
+	LinePaid      string
+	LineClaimable string
+	PlanID        string
+
+	CreatedTime    uint64
+	StartTime      uint64
+	ClaimEffective uint64
+	DaysCount      uint32
+	Status         uint8
+
+	QueueIndex string
+	QueueLiqU  string
+	QueuedAt   uint64
+	QueueDone  bool
+
+	CreatedBlock    uint64
+	EnteredBlock    uint64
+	ExitedBlock     uint64
+	LastSyncedBlock uint64
+}
+
+type StakingV1OrderQuery struct {
+	Page     uint64
+	PageSize uint64
+	UserID   uint64
+	Address  string
+	Status   uint8
+	OrderBy  string
+	Order    string
+}
+
+type StakingV1OrderUser struct {
+	UserID   uint64
+	UserAddr string
+}
+
+type StakingV1OrderIntegrity struct {
+	MasterWithoutCreated      uint64
+	CreatedWithoutMaster      uint64
+	ExitedWithoutExit         uint64
+	ExitNotMarkedExited       uint64
+	RunningWithoutEntered     uint64
+	QueuedWithEntered         uint64
+	QueueDoneWithoutQueued    uint64
+	QueueDoneWithoutEntered   uint64
+	LifecycleIdentityMismatch uint64
+	MasterCreatedMismatch     uint64
+	DuplicateCreatedOrderID   uint64
+	DuplicateExitOrderID      uint64
+	CreatedCount              uint64
+	MinCreatedOrderID         string
+	MaxCreatedOrderID         string
 }
 
 type StakingStaked struct {
@@ -482,6 +660,8 @@ type UserRepo interface {
 	GetUserV1BoundByAddress(ctx context.Context, address string) (*UserV1Bound, error)
 	GetUserV1Bounds(ctx context.Context) ([]*UserV1Bound, error)
 	GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*UserV1Bound, error)
+	GetUserV1Overview(ctx context.Context, yesterdayStart, todayStart, tomorrowStart uint64) (*UserV1Overview, error)
+	GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*UserV1Bound, uint64, error)
 	InsertUserV1Bound(ctx context.Context, iData *UserV1Bound) error
 	DeleteUserV1BoundAll(ctx context.Context) error
 	GetUserV1BoundSyncProgress(ctx context.Context) (*UserV1BoundSyncProgress, error)
@@ -495,6 +675,12 @@ type UserRepo interface {
 	InsertStakingV1TeamClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1TeamExpired(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1LineClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
+	GetUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock, limit uint64) ([]uint64, error)
+	CountUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock uint64) (uint64, error)
+	UpdateUserV1StakeChangedBlockTimes(ctx context.Context, blockTimes map[uint64]uint64) error
+	GetUserV1StakeAddEvents(ctx context.Context) ([]*UserV1StakeChanged, error)
+	UpdateUserV1StakeInvestmentNumber(ctx context.Context, eventID, investmentNumber uint64) error
+	RepairUserV1InvestmentCount(ctx context.Context) (uint64, uint64, error)
 	UpdateUserV1StakeAmount(ctx context.Context, userID uint64, amount string, isAdd bool) error
 	UpdateUserV1ChildrenAmount(ctx context.Context, userIDs []uint64, amount string, isAdd bool) error
 	UpdateUserV1ExtraAmount(ctx context.Context, userID uint64, amount string) error
@@ -503,6 +689,19 @@ type UserRepo interface {
 	UpdateUserV1TeamExpired(ctx context.Context, userID uint64, amount string) error
 	UpdateUserV1LineClaimed(ctx context.Context, userID uint64, event *StakingV1Reward) error
 	UpdateUserV1LevelReward(ctx context.Context, userID uint64, amount string) error
+	InsertStakingV1OrderEvent(ctx context.Context, event *StakingV1OrderEvent) (bool, error)
+	ApplyStakingV1OrderEvent(ctx context.Context, event *StakingV1OrderEvent) error
+	ApplyStakingV1OrderSnapshot(ctx context.Context, snapshot *StakingV1OrderSnapshot) error
+	MarkStakingV1OrderUsersForSnapshot(ctx context.Context, users []*StakingV1OrderUser) error
+	GetStakingV1OrderByOrderID(ctx context.Context, orderID string) (*StakingV1Order, error)
+	GetActiveStakingV1OrdersByAddress(ctx context.Context, address string) ([]*StakingV1Order, error)
+	GetStakingV1OrderPage(ctx context.Context, query *StakingV1OrderQuery) ([]*StakingV1Order, uint64, error)
+	GetStakingV1OrderUsersNeedingSnapshot(ctx context.Context, limit uint64) ([]*StakingV1OrderUser, error)
+	CountStakingV1OrderUsersNeedingSnapshot(ctx context.Context) (uint64, error)
+	GetStakingV1PlanDaysCounts(ctx context.Context) (map[string]uint32, error)
+	RepairStakingV1OrderLinePaid(ctx context.Context) (uint64, error)
+	GetStakingV1OrderIntegrity(ctx context.Context) (*StakingV1OrderIntegrity, error)
+	IncrementExitedStakingV1OrderLinePaid(ctx context.Context, orderID, grossU string, eventBlock uint64) error
 	ResetUserV1Performance(ctx context.Context) error
 	DeleteUserV1PerformanceEvents(ctx context.Context) error
 	GetStakingStakedLast(ctx context.Context) (*StakingStaked, error)
@@ -1514,6 +1713,7 @@ func (ac *AppUsecase) RebuildUserV1Bound(ctx context.Context, events []*UserV1Bo
 func copyUserV1Performance(target *UserV1Bound, source *UserV1Bound) {
 	target.Amount = source.Amount
 	target.AmountHistory = source.AmountHistory
+	target.InvestmentCount = source.InvestmentCount
 	target.ChildrenAmount = source.ChildrenAmount
 	target.ChildrenAmountHistory = source.ChildrenAmountHistory
 	target.ChildrenAmountExtra = source.ChildrenAmountExtra
@@ -1539,6 +1739,73 @@ func (ac *AppUsecase) GetUserV1BoundByAddress(ctx context.Context, address strin
 
 func (ac *AppUsecase) GetUserV1Bounds(ctx context.Context) ([]*UserV1Bound, error) {
 	return ac.userRepo.GetUserV1Bounds(ctx)
+}
+
+func (ac *AppUsecase) GetUserV1Overview(ctx context.Context, yesterdayStart, todayStart, tomorrowStart uint64) (*UserV1Overview, error) {
+	overview, err := ac.userRepo.GetUserV1Overview(ctx, yesterdayStart, todayStart, tomorrowStart)
+	if nil != err {
+		return nil, err
+	}
+	if 0 < overview.MissingInvestmentBlockTimeEventCount {
+		return nil, fmt.Errorf("有 %d 条投资事件缺少链上时间，请先执行 /api/recover_user_investment_data", overview.MissingInvestmentBlockTimeEventCount)
+	}
+	if 0 < overview.MissingInvestmentNumberEventCount {
+		return nil, fmt.Errorf("有 %d 条投资事件缺少投资次序，请继续执行 /api/recover_user_investment_data", overview.MissingInvestmentNumberEventCount)
+	}
+	return overview, nil
+}
+
+func (ac *AppUsecase) GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*UserV1Bound, uint64, error) {
+	return ac.userRepo.GetUserV1BoundPage(ctx, page, pageSize, minAmount, minChildrenAmount, orderBy, order, address, userID)
+}
+
+func (ac *AppUsecase) GetUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock, limit uint64) ([]uint64, error) {
+	return ac.userRepo.GetUserV1StakeChangedBlocksWithoutTime(ctx, fromBlock, limit)
+}
+
+func (ac *AppUsecase) CountUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock uint64) (uint64, error) {
+	return ac.userRepo.CountUserV1StakeChangedBlocksWithoutTime(ctx, fromBlock)
+}
+
+func (ac *AppUsecase) SaveUserV1StakeChangedBlockTimes(ctx context.Context, blockTimes map[uint64]uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		return ac.userRepo.UpdateUserV1StakeChangedBlockTimes(ctx, blockTimes)
+	})
+}
+
+func (ac *AppUsecase) RepairUserV1InvestmentData(ctx context.Context) (uint64, uint64, error) {
+	progress, err := ac.userRepo.GetUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamStake)
+	if nil != err {
+		return 0, 0, err
+	}
+	if nil == progress {
+		return 0, 0, fmt.Errorf("StakeChanged 同步进度不存在，请先完成 /api/recover_performance_event")
+	}
+
+	var userCount uint64
+	var orderCount uint64
+	err = ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		events, errT := ac.userRepo.GetUserV1StakeAddEvents(ctx)
+		if nil != errT {
+			return errT
+		}
+		lastUser := ""
+		investmentNumber := uint64(0)
+		for _, event := range events {
+			if event.UserAddr != lastUser {
+				lastUser = event.UserAddr
+				investmentNumber = 0
+			}
+			investmentNumber++
+			if errT = ac.userRepo.UpdateUserV1StakeInvestmentNumber(ctx, event.ID, investmentNumber); nil != errT {
+				return errT
+			}
+		}
+
+		userCount, orderCount, errT = ac.userRepo.RepairUserV1InvestmentCount(ctx)
+		return errT
+	})
+	return userCount, orderCount, err
 }
 
 func (ac *AppUsecase) GetUserV1PerformanceSyncProgress(ctx context.Context, streamName string) (*UserV1PerformanceSyncProgress, error) {
@@ -1611,6 +1878,12 @@ func (ac *AppUsecase) saveUserV1StakeChangedEvents(ctx context.Context, events [
 		ancestorIDs, err := ac.checkedUserV1Ancestors(ctx, user, true)
 		if nil != err {
 			return err
+		}
+		if event.IsAdd {
+			event.InvestmentNumber = user.InvestmentCount + 1
+			if err = ac.userRepo.UpdateUserV1StakeInvestmentNumber(ctx, event.ID, event.InvestmentNumber); nil != err {
+				return err
+			}
 		}
 		if err = ac.userRepo.UpdateUserV1StakeAmount(ctx, user.ID, event.Amount, event.IsAdd); nil != err {
 			return err
@@ -1697,8 +1970,308 @@ func (ac *AppUsecase) saveStakingV1RewardEvents(ctx context.Context, events []*S
 		if nil != err {
 			return err
 		}
+		if StakingV1RewardLineClaimed == event.EventType {
+			// Only a newly inserted LineClaimed event reaches here. Increment
+			// when the order snapshot is older than the event; a snapshot from
+			// the same/newer block already contains this payment. This makes the
+			// independently scheduled reward and order endpoints converge in
+			// either execution order, including the final payment before exit.
+			if err = ac.userRepo.IncrementExitedStakingV1OrderLinePaid(ctx, event.OrderID, event.GrossU, event.BlockNumber); nil != err {
+				return err
+			}
+		}
 	}
 	return nil
+}
+
+func (ac *AppUsecase) checkedStakingV1OrderUser(ctx context.Context, userID uint64, address string) (uint64, string, error) {
+	address = strings.ToLower(strings.TrimSpace(address))
+	if "" == address {
+		return 0, "", fmt.Errorf("staking order user address is empty")
+	}
+	user, err := ac.userRepo.GetUserV1BoundByAddress(ctx, address)
+	if nil != err {
+		return 0, "", err
+	}
+	if nil == user {
+		return 0, "", fmt.Errorf("staking order user %s is not in user_v1_bound_event", address)
+	}
+	if 0 != userID && user.ID != userID {
+		return 0, "", fmt.Errorf("staking order user mismatch: address=%s db_user_id=%d event_user_id=%d", address, user.ID, userID)
+	}
+	return user.ID, address, nil
+}
+
+func (ac *AppUsecase) saveStakingV1OrderEvents(ctx context.Context, events []*StakingV1OrderEvent) error {
+	planDays, err := ac.userRepo.GetStakingV1PlanDaysCounts(ctx)
+	if nil != err {
+		return err
+	}
+	for _, event := range events {
+		if nil == event {
+			continue
+		}
+		if "" == strings.TrimSpace(event.EventKey) {
+			return fmt.Errorf("%s staking order event has empty event key", event.EventType)
+		}
+		if StakingV1OrderEventPlanSet == event.EventType {
+			inserted, err := ac.userRepo.InsertStakingV1OrderEvent(ctx, event)
+			if nil != err {
+				return err
+			}
+			// Events are replayed in block/log order. Keep the in-memory plan
+			// state in sync even when this row was already present, so a Created
+			// event later in the same range receives the plan's historical days.
+			planDays[event.PlanID] = event.DaysCount
+			if inserted {
+				continue
+			}
+			continue
+		}
+		if "" == strings.TrimSpace(event.OrderID) {
+			return fmt.Errorf("%s staking order event has empty order id or event key", event.EventType)
+		}
+		if StakingV1OrderEventCreated == event.EventType {
+			daysCount, ok := planDays[event.PlanID]
+			if !ok {
+				return fmt.Errorf("staking order %s references unknown plan %s", event.OrderID, event.PlanID)
+			}
+			event.DaysCount = daysCount
+		}
+		userID, address, err := ac.checkedStakingV1OrderUser(ctx, event.UserID, event.UserAddr)
+		if nil != err {
+			return err
+		}
+		event.UserID = userID
+		event.UserAddr = address
+		inserted, err := ac.userRepo.InsertStakingV1OrderEvent(ctx, event)
+		if nil != err {
+			return err
+		}
+		if !inserted {
+			continue
+		}
+		if err = ac.userRepo.ApplyStakingV1OrderEvent(ctx, event); nil != err {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ac *AppUsecase) applyStakingV1OrderSnapshots(ctx context.Context, snapshots []*StakingV1OrderSnapshot) error {
+	for _, snapshot := range snapshots {
+		if nil == snapshot {
+			continue
+		}
+		if "" == strings.TrimSpace(snapshot.OrderID) {
+			return fmt.Errorf("staking order snapshot has empty order id")
+		}
+		if snapshot.Status < StakingV1OrderStatusQueued || snapshot.Status > StakingV1OrderStatusExited {
+			return fmt.Errorf("staking order %s snapshot has invalid status %d", snapshot.OrderID, snapshot.Status)
+		}
+		userID, address, err := ac.checkedStakingV1OrderUser(ctx, snapshot.UserID, snapshot.UserAddr)
+		if nil != err {
+			return err
+		}
+		snapshot.UserID = userID
+		snapshot.UserAddr = address
+		if err = ac.userRepo.ApplyStakingV1OrderSnapshot(ctx, snapshot); nil != err {
+			return err
+		}
+	}
+	return nil
+}
+
+// SaveStakingV1OrderRange atomically stores lifecycle events, marks every
+// affected user's active orders dirty, and advances the staking_order
+// checkpoint. Dirty orders are refreshed only after the event stream catches
+// the recent safe head, so a pruned full node never needs historical state.
+func (ac *AppUsecase) SaveStakingV1OrderRange(ctx context.Context, events []*StakingV1OrderEvent, refreshUsers []*StakingV1OrderUser, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveStakingV1OrderEvents(ctx, events); nil != err {
+			return err
+		}
+		checkedUsers := make([]*StakingV1OrderUser, 0, len(refreshUsers))
+		for _, user := range refreshUsers {
+			if nil == user {
+				continue
+			}
+			userID, address, err := ac.checkedStakingV1OrderUser(ctx, user.UserID, user.UserAddr)
+			if nil != err {
+				return err
+			}
+			checkedUsers = append(checkedUsers, &StakingV1OrderUser{UserID: userID, UserAddr: address})
+		}
+		if err := ac.userRepo.MarkStakingV1OrderUsersForSnapshot(ctx, checkedUsers); nil != err {
+			return err
+		}
+		if err := ac.ValidateStakingV1OrderIntegrity(ctx, ""); nil != err {
+			return err
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamOrder, lastProcessedBlock)
+	})
+}
+
+// RecoverStakingV1OrderRange only rebuilds event-derived state. Its rows keep
+// last_synced_block=0 until the separate snapshot phase reads each active user
+// from the chain. The normal staking_order stream is deliberately not opened
+// until CompleteStakingV1OrderRecovery succeeds.
+func (ac *AppUsecase) RecoverStakingV1OrderRange(ctx context.Context, events []*StakingV1OrderEvent, refreshUsers []*StakingV1OrderUser, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		if err := ac.saveStakingV1OrderEvents(ctx, events); nil != err {
+			return err
+		}
+		checkedUsers := make([]*StakingV1OrderUser, 0, len(refreshUsers))
+		for _, user := range refreshUsers {
+			if nil == user {
+				continue
+			}
+			userID, address, err := ac.checkedStakingV1OrderUser(ctx, user.UserID, user.UserAddr)
+			if nil != err {
+				return err
+			}
+			checkedUsers = append(checkedUsers, &StakingV1OrderUser{UserID: userID, UserAddr: address})
+		}
+		if err := ac.userRepo.MarkStakingV1OrderUsersForSnapshot(ctx, checkedUsers); nil != err {
+			return err
+		}
+		if err := ac.ValidateStakingV1OrderIntegrity(ctx, ""); nil != err {
+			return err
+		}
+		return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamOrderRecovery, lastProcessedBlock)
+	})
+}
+
+func (ac *AppUsecase) CompleteStakingV1OrderRecovery(ctx context.Context, lastProcessedBlock uint64) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		for _, streamName := range []string{UserV1PerformanceStreamOrderRecovery, UserV1PerformanceStreamOrder} {
+			if err := ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, streamName, lastProcessedBlock); nil != err {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (ac *AppUsecase) SaveStakingV1OrderRecoveryTarget(ctx context.Context, targetBlock uint64) error {
+	return ac.userRepo.SaveUserV1PerformanceSyncProgress(ctx, UserV1PerformanceStreamOrderTarget, targetBlock)
+}
+
+func (ac *AppUsecase) ApplyStakingV1OrderSnapshots(ctx context.Context, snapshots []*StakingV1OrderSnapshot) error {
+	return ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		return ac.applyStakingV1OrderSnapshots(ctx, snapshots)
+	})
+}
+
+func (ac *AppUsecase) GetStakingV1OrderByOrderID(ctx context.Context, orderID string) (*StakingV1Order, error) {
+	return ac.userRepo.GetStakingV1OrderByOrderID(ctx, strings.TrimSpace(orderID))
+}
+
+func (ac *AppUsecase) GetActiveStakingV1OrdersByAddress(ctx context.Context, address string) ([]*StakingV1Order, error) {
+	return ac.userRepo.GetActiveStakingV1OrdersByAddress(ctx, strings.ToLower(strings.TrimSpace(address)))
+}
+
+func (ac *AppUsecase) GetStakingV1OrderPage(ctx context.Context, query *StakingV1OrderQuery) ([]*StakingV1Order, uint64, error) {
+	if nil == query {
+		return nil, 0, fmt.Errorf("staking order query is nil")
+	}
+	query.Address = strings.ToLower(strings.TrimSpace(query.Address))
+	query.OrderBy = strings.ToLower(strings.TrimSpace(query.OrderBy))
+	query.Order = strings.ToLower(strings.TrimSpace(query.Order))
+	return ac.userRepo.GetStakingV1OrderPage(ctx, query)
+}
+
+func (ac *AppUsecase) GetStakingV1OrderUsersNeedingSnapshot(ctx context.Context, limit uint64) ([]*StakingV1OrderUser, error) {
+	return ac.userRepo.GetStakingV1OrderUsersNeedingSnapshot(ctx, limit)
+}
+
+func (ac *AppUsecase) CountStakingV1OrderUsersNeedingSnapshot(ctx context.Context) (uint64, error) {
+	return ac.userRepo.CountStakingV1OrderUsersNeedingSnapshot(ctx)
+}
+
+func (ac *AppUsecase) GetStakingV1PlanDaysCounts(ctx context.Context) (map[string]uint32, error) {
+	return ac.userRepo.GetStakingV1PlanDaysCounts(ctx)
+}
+
+func (ac *AppUsecase) RepairStakingV1OrderLinePaid(ctx context.Context) (uint64, error) {
+	var repaired uint64
+	err := ac.tx.ExecTx(ctx, func(ctx context.Context) error {
+		var err error
+		repaired, err = ac.userRepo.RepairStakingV1OrderLinePaid(ctx)
+		return err
+	})
+	return repaired, err
+}
+
+func (ac *AppUsecase) ValidateStakingV1OrderIntegrity(ctx context.Context, expectedNextOrderID string) error {
+	state, err := ac.userRepo.GetStakingV1OrderIntegrity(ctx)
+	if nil != err {
+		return err
+	}
+	checks := []struct {
+		name  string
+		count uint64
+	}{
+		{"master_without_created", state.MasterWithoutCreated},
+		{"created_without_master", state.CreatedWithoutMaster},
+		{"exited_without_exit", state.ExitedWithoutExit},
+		{"exit_not_marked_exited", state.ExitNotMarkedExited},
+		{"running_without_entered", state.RunningWithoutEntered},
+		{"queued_with_entered", state.QueuedWithEntered},
+		{"queue_done_without_queued", state.QueueDoneWithoutQueued},
+		{"queue_done_without_entered", state.QueueDoneWithoutEntered},
+		{"lifecycle_identity_mismatch", state.LifecycleIdentityMismatch},
+		{"master_created_mismatch", state.MasterCreatedMismatch},
+		{"duplicate_created_order_id", state.DuplicateCreatedOrderID},
+		{"duplicate_exit_order_id", state.DuplicateExitOrderID},
+	}
+	for _, check := range checks {
+		if 0 != check.count {
+			return fmt.Errorf("staking order integrity %s=%d", check.name, check.count)
+		}
+	}
+	if "" == strings.TrimSpace(expectedNextOrderID) {
+		return nil
+	}
+	nextOrderID, ok := new(big.Int).SetString(strings.TrimSpace(expectedNextOrderID), 10)
+	if !ok || nextOrderID.Sign() <= 0 {
+		return fmt.Errorf("invalid staking nextOrderId %q", expectedNextOrderID)
+	}
+	expectedCount := new(big.Int).Sub(new(big.Int).Set(nextOrderID), big.NewInt(1))
+	actualCount := new(big.Int).SetUint64(state.CreatedCount)
+	if actualCount.Cmp(expectedCount) != 0 {
+		return fmt.Errorf("staking order created count mismatch: expected=%s actual=%d", expectedCount.String(), state.CreatedCount)
+	}
+	if 0 == expectedCount.Sign() {
+		return nil
+	}
+	minOrderID, minOK := new(big.Int).SetString(state.MinCreatedOrderID, 10)
+	maxOrderID, maxOK := new(big.Int).SetString(state.MaxCreatedOrderID, 10)
+	if !minOK || !maxOK || minOrderID.Cmp(big.NewInt(1)) != 0 || maxOrderID.Cmp(expectedCount) != 0 {
+		return fmt.Errorf("staking order id range mismatch: expected=1..%s actual=%s..%s", expectedCount.String(), state.MinCreatedOrderID, state.MaxCreatedOrderID)
+	}
+	return nil
+}
+
+// SyncStakingV1LineClaimedOrder refreshes an active order absolutely. For an
+// exited order the corresponding newly-inserted LineClaimed event has already
+// updated line_paid inside saveStakingV1RewardEvents, so no snapshot may reopen
+// or otherwise mutate that final order.
+func (ac *AppUsecase) SyncStakingV1LineClaimedOrder(ctx context.Context, event *StakingV1Reward, snapshot *StakingV1OrderSnapshot) error {
+	if nil == event {
+		return fmt.Errorf("LineClaimed event is nil")
+	}
+	order, err := ac.userRepo.GetStakingV1OrderByOrderID(ctx, event.OrderID)
+	if nil != err {
+		return err
+	}
+	if nil != order && StakingV1OrderStatusExited == order.Status {
+		return nil
+	}
+	if nil == snapshot {
+		return fmt.Errorf("active LineClaimed order %s has no chain snapshot", event.OrderID)
+	}
+	return ac.ApplyStakingV1OrderSnapshots(ctx, []*StakingV1OrderSnapshot{snapshot})
 }
 
 func (ac *AppUsecase) SaveUserV1StakeChangedRange(ctx context.Context, events []*UserV1StakeChanged, lastProcessedBlock uint64) error {

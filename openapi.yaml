@@ -694,6 +694,63 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_staking_order_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetStakingOrderEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_staking_order_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetStakingOrderList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: userId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+                - name: status
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: orderBy
+                  in: query
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetStakingOrderListReply'
     /api/get_staking_reward_event:
         get:
             tags:
@@ -730,6 +787,54 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_user_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: minAmount
+                  in: query
+                  schema:
+                    type: string
+                - name: orderBy
+                  in: query
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  schema:
+                    type: string
+                - name: minChildrenAmount
+                  in: query
+                  schema:
+                    type: string
+                - name: userId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserListReply'
     /api/get_user_lp:
         get:
             tags:
@@ -747,6 +852,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserLpReply'
+    /api/get_user_overview:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserOverview
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserOverviewReply'
     /api/get_user_r_event:
         get:
             tags:
@@ -795,6 +912,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/recover_staking_order_event:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_RecoverStakingOrderEvent
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.RecoverStakingOrderEventReply'
     /api/recover_user_bound_event:
         get:
             tags:
@@ -807,6 +936,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/recover_user_investment_data:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_RecoverUserInvestmentData
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.RecoverUserInvestmentDataReply'
     /api/remove_liquidity:
         post:
             tags:
@@ -1459,6 +1600,179 @@ components:
         api.requestEth.v1.GetSellEventReply:
             type: object
             properties: {}
+        api.requestEth.v1.GetStakingOrderListReply:
+            type: object
+            properties:
+                total:
+                    type: integer
+                    format: uint64
+                page:
+                    type: integer
+                    format: uint64
+                pageSize:
+                    type: integer
+                    format: uint64
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetStakingOrderListReply_Order'
+        api.requestEth.v1.GetStakingOrderListReply_Order:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint64
+                orderId:
+                    type: string
+                userId:
+                    type: integer
+                    format: uint64
+                userAddr:
+                    type: string
+                userOrderIndex:
+                    type: integer
+                    format: uint64
+                amount:
+                    type: string
+                baseCap:
+                    type: string
+                cap:
+                    type: string
+                used:
+                    type: string
+                remaining:
+                    type: string
+                compensation:
+                    type: string
+                linePaid:
+                    type: string
+                lineClaimable:
+                    type: string
+                planId:
+                    type: integer
+                    format: uint64
+                createdTime:
+                    type: integer
+                    format: uint64
+                startTime:
+                    type: integer
+                    format: uint64
+                claimEffective:
+                    type: integer
+                    format: uint64
+                daysCount:
+                    type: integer
+                    format: uint32
+                status:
+                    type: integer
+                    format: uint32
+                statusName:
+                    type: string
+                queueIndex:
+                    type: string
+                queueLiqU:
+                    type: string
+                queuedAt:
+                    type: integer
+                    format: uint64
+                queueDone:
+                    type: boolean
+                createdBlockNumber:
+                    type: integer
+                    format: uint64
+                enteredBlockNumber:
+                    type: integer
+                    format: uint64
+                exitedBlockNumber:
+                    type: integer
+                    format: uint64
+                lastSyncedBlock:
+                    type: integer
+                    format: uint64
+                createdAt:
+                    type: integer
+                    format: uint64
+                updatedAt:
+                    type: integer
+                    format: uint64
+        api.requestEth.v1.GetUserListReply:
+            type: object
+            properties:
+                total:
+                    type: integer
+                    format: uint64
+                page:
+                    type: integer
+                    format: uint64
+                pageSize:
+                    type: integer
+                    format: uint64
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetUserListReply_User'
+        api.requestEth.v1.GetUserListReply_User:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint64
+                blockNumber:
+                    type: integer
+                    format: uint64
+                userAddr:
+                    type: string
+                parentAddr:
+                    type: string
+                recommendCode:
+                    type: string
+                amount:
+                    type: string
+                amountHistory:
+                    type: string
+                investmentCount:
+                    type: integer
+                    format: uint64
+                childrenAmount:
+                    type: string
+                childrenAmountHistory:
+                    type: string
+                childrenAmountExtra:
+                    type: string
+                rewardRecommendAmount:
+                    type: string
+                rewardRecommendPay:
+                    type: string
+                rewardRecommendStoreAmount:
+                    type: string
+                rewardRecommendFee:
+                    type: string
+                rewardRecommendTeamUAmount:
+                    type: string
+                rewardRecommendClaimedTeamUNet:
+                    type: string
+                rewardRecommendClaimedTeamUAmount:
+                    type: string
+                rewardRecommendClaimedTeamUFee:
+                    type: string
+                rewardRecommendExpired:
+                    type: string
+                lineU:
+                    type: string
+                lineCoinU:
+                    type: string
+                lineCoin:
+                    type: string
+                lineFee:
+                    type: string
+                levelReward:
+                    type: string
+                createdAt:
+                    type: integer
+                    format: uint64
+                updatedAt:
+                    type: integer
+                    format: uint64
         api.requestEth.v1.GetUserLpReply:
             type: object
             properties:
@@ -1466,9 +1780,75 @@ components:
                     type: string
                 lpAmountTotal:
                     type: string
+        api.requestEth.v1.GetUserOverviewReply:
+            type: object
+            properties:
+                registeredUserCount:
+                    type: integer
+                    format: uint64
+                historicalInvestorCount:
+                    type: integer
+                    format: uint64
+                currentInvestorCount:
+                    type: integer
+                    format: uint64
+                currentAmountGte10000UserCount:
+                    type: integer
+                    format: uint64
+                historicalAmountGte10000UserCount:
+                    type: integer
+                    format: uint64
+                investmentCountGt2UserCount:
+                    type: integer
+                    format: uint64
+                todayInvestmentAmount:
+                    type: string
+                todayInvestmentOrderCount:
+                    type: integer
+                    format: uint64
+                yesterdayInvestmentAmount:
+                    type: string
+                yesterdayInvestmentOrderCount:
+                    type: integer
+                    format: uint64
+                todayReinvestmentAmount:
+                    type: string
         api.requestEth.v1.GetUserREventReply:
             type: object
             properties: {}
+        api.requestEth.v1.RecoverStakingOrderEventReply:
+            type: object
+            properties:
+                lastProcessedBlock:
+                    type: integer
+                    format: uint64
+                safeHead:
+                    type: integer
+                    format: uint64
+                eventFinished:
+                    type: boolean
+                remainingSnapshotUserCount:
+                    type: integer
+                    format: uint64
+                finished:
+                    type: boolean
+        api.requestEth.v1.RecoverUserInvestmentDataReply:
+            type: object
+            properties:
+                repairedBlockCount:
+                    type: integer
+                    format: uint64
+                investmentUserCount:
+                    type: integer
+                    format: uint64
+                investmentOrderCount:
+                    type: integer
+                    format: uint64
+                remainingBlockCount:
+                    type: integer
+                    format: uint64
+                finished:
+                    type: boolean
         api.requestEth.v1.RemoveLiquidityReply:
             type: object
             properties:

@@ -19,66 +19,72 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Transaction_SendTransaction_FullMethodName          = "/api.requestEth.v1.Transaction/SendTransaction"
-	Transaction_SendTransactionEth_FullMethodName       = "/api.requestEth.v1.Transaction/SendTransactionEth"
-	Transaction_Transaction_FullMethodName              = "/api.requestEth.v1.Transaction/Transaction"
-	Transaction_EthBalance_FullMethodName               = "/api.requestEth.v1.Transaction/EthBalance"
-	Transaction_GenerateKey_FullMethodName              = "/api.requestEth.v1.Transaction/GenerateKey"
-	Transaction_TokenBalance_FullMethodName             = "/api.requestEth.v1.Transaction/TokenBalance"
-	Transaction_VerifySig_FullMethodName                = "/api.requestEth.v1.Transaction/VerifySig"
-	Transaction_GetReserves_FullMethodName              = "/api.requestEth.v1.Transaction/GetReserves"
-	Transaction_GetAll_FullMethodName                   = "/api.requestEth.v1.Transaction/GetAll"
-	Transaction_GetAllTwo_FullMethodName                = "/api.requestEth.v1.Transaction/GetAllTwo"
-	Transaction_GetArray_FullMethodName                 = "/api.requestEth.v1.Transaction/GetArray"
-	Transaction_GetLpByOrderId_FullMethodName           = "/api.requestEth.v1.Transaction/GetLpByOrderId"
-	Transaction_GetBuyByOrderId_FullMethodName          = "/api.requestEth.v1.Transaction/GetBuyByOrderId"
-	Transaction_GetUserLp_FullMethodName                = "/api.requestEth.v1.Transaction/GetUserLp"
-	Transaction_GetDailyFee_FullMethodName              = "/api.requestEth.v1.Transaction/GetDailyFee"
-	Transaction_AddLiquidity_FullMethodName             = "/api.requestEth.v1.Transaction/AddLiquidity"
-	Transaction_RemoveLiquidity_FullMethodName          = "/api.requestEth.v1.Transaction/RemoveLiquidity"
-	Transaction_BuyAICAT_FullMethodName                 = "/api.requestEth.v1.Transaction/BuyAICAT"
-	Transaction_WithdrawAICAT_FullMethodName            = "/api.requestEth.v1.Transaction/WithdrawAICAT"
-	Transaction_SendAICAT_FullMethodName                = "/api.requestEth.v1.Transaction/SendAICAT"
-	Transaction_GetBuyAICATByOrderId_FullMethodName     = "/api.requestEth.v1.Transaction/GetBuyAICATByOrderId"
-	Transaction_AddWhite_FullMethodName                 = "/api.requestEth.v1.Transaction/AddWhite"
-	Transaction_GetBoxAllLength_FullMethodName          = "/api.requestEth.v1.Transaction/GetBoxAllLength"
-	Transaction_GetBoxNew_FullMethodName                = "/api.requestEth.v1.Transaction/GetBoxNew"
-	Transaction_GetBoxOpen_FullMethodName               = "/api.requestEth.v1.Transaction/GetBoxOpen"
-	Transaction_SetReward_FullMethodName                = "/api.requestEth.v1.Transaction/SetReward"
-	Transaction_SetRewardTwo_FullMethodName             = "/api.requestEth.v1.Transaction/SetRewardTwo"
-	Transaction_GetBoxRewardEvent_FullMethodName        = "/api.requestEth.v1.Transaction/GetBoxRewardEvent"
-	Transaction_GetExchangeEvent_FullMethodName         = "/api.requestEth.v1.Transaction/GetExchangeEvent"
-	Transaction_GetBuyEvent_FullMethodName              = "/api.requestEth.v1.Transaction/GetBuyEvent"
-	Transaction_GetSellEvent_FullMethodName             = "/api.requestEth.v1.Transaction/GetSellEvent"
-	Transaction_GetBoxBuyEvent_FullMethodName           = "/api.requestEth.v1.Transaction/GetBoxBuyEvent"
-	Transaction_GetBoxMintEvent_FullMethodName          = "/api.requestEth.v1.Transaction/GetBoxMintEvent"
-	Transaction_GetBoxMintEventFix_FullMethodName       = "/api.requestEth.v1.Transaction/GetBoxMintEventFix"
-	Transaction_GetBoxListEvent_FullMethodName          = "/api.requestEth.v1.Transaction/GetBoxListEvent"
-	Transaction_GetBoxUnListEvent_FullMethodName        = "/api.requestEth.v1.Transaction/GetBoxUnListEvent"
-	Transaction_GetBoxOpenEvent_FullMethodName          = "/api.requestEth.v1.Transaction/GetBoxOpenEvent"
-	Transaction_GetBoxTransferEvent_FullMethodName      = "/api.requestEth.v1.Transaction/GetBoxTransferEvent"
-	Transaction_GetUserREvent_FullMethodName            = "/api.requestEth.v1.Transaction/GetUserREvent"
-	Transaction_SetUser_FullMethodName                  = "/api.requestEth.v1.Transaction/SetUser"
-	Transaction_PQueue_FullMethodName                   = "/api.requestEth.v1.Transaction/PQueue"
-	Transaction_GetStakeEvent_FullMethodName            = "/api.requestEth.v1.Transaction/GetStakeEvent"
-	Transaction_GetQueueEvent_FullMethodName            = "/api.requestEth.v1.Transaction/GetQueueEvent"
-	Transaction_GetQueueArray_FullMethodName            = "/api.requestEth.v1.Transaction/GetQueueArray"
-	Transaction_GetBindUserEvent_FullMethodName         = "/api.requestEth.v1.Transaction/GetBindUserEvent"
-	Transaction_GetUserBoundEvent_FullMethodName        = "/api.requestEth.v1.Transaction/GetUserBoundEvent"
-	Transaction_RecoverUserBoundEvent_FullMethodName    = "/api.requestEth.v1.Transaction/RecoverUserBoundEvent"
-	Transaction_GetUserStakeChangedEvent_FullMethodName = "/api.requestEth.v1.Transaction/GetUserStakeChangedEvent"
-	Transaction_GetUserExtraChangedEvent_FullMethodName = "/api.requestEth.v1.Transaction/GetUserExtraChangedEvent"
-	Transaction_GetStakingRewardEvent_FullMethodName    = "/api.requestEth.v1.Transaction/GetStakingRewardEvent"
-	Transaction_RecoverPerformanceEvent_FullMethodName  = "/api.requestEth.v1.Transaction/RecoverPerformanceEvent"
-	Transaction_GetExchangeList_FullMethodName          = "/api.requestEth.v1.Transaction/GetExchangeList"
-	Transaction_GetBuyList_FullMethodName               = "/api.requestEth.v1.Transaction/GetBuyList"
-	Transaction_GetRewardList_FullMethodName            = "/api.requestEth.v1.Transaction/GetRewardList"
-	Transaction_GetBuyBoxList_FullMethodName            = "/api.requestEth.v1.Transaction/GetBuyBoxList"
-	Transaction_UpdateBox_FullMethodName                = "/api.requestEth.v1.Transaction/UpdateBox"
-	Transaction_GetAddressBox_FullMethodName            = "/api.requestEth.v1.Transaction/GetAddressBox"
-	Transaction_GetSellBoxList_FullMethodName           = "/api.requestEth.v1.Transaction/GetSellBoxList"
-	Transaction_GetMarketList_FullMethodName            = "/api.requestEth.v1.Transaction/GetMarketList"
-	Transaction_GetAllInfo_FullMethodName               = "/api.requestEth.v1.Transaction/GetAllInfo"
+	Transaction_SendTransaction_FullMethodName           = "/api.requestEth.v1.Transaction/SendTransaction"
+	Transaction_SendTransactionEth_FullMethodName        = "/api.requestEth.v1.Transaction/SendTransactionEth"
+	Transaction_Transaction_FullMethodName               = "/api.requestEth.v1.Transaction/Transaction"
+	Transaction_EthBalance_FullMethodName                = "/api.requestEth.v1.Transaction/EthBalance"
+	Transaction_GenerateKey_FullMethodName               = "/api.requestEth.v1.Transaction/GenerateKey"
+	Transaction_TokenBalance_FullMethodName              = "/api.requestEth.v1.Transaction/TokenBalance"
+	Transaction_VerifySig_FullMethodName                 = "/api.requestEth.v1.Transaction/VerifySig"
+	Transaction_GetReserves_FullMethodName               = "/api.requestEth.v1.Transaction/GetReserves"
+	Transaction_GetAll_FullMethodName                    = "/api.requestEth.v1.Transaction/GetAll"
+	Transaction_GetAllTwo_FullMethodName                 = "/api.requestEth.v1.Transaction/GetAllTwo"
+	Transaction_GetArray_FullMethodName                  = "/api.requestEth.v1.Transaction/GetArray"
+	Transaction_GetLpByOrderId_FullMethodName            = "/api.requestEth.v1.Transaction/GetLpByOrderId"
+	Transaction_GetBuyByOrderId_FullMethodName           = "/api.requestEth.v1.Transaction/GetBuyByOrderId"
+	Transaction_GetUserLp_FullMethodName                 = "/api.requestEth.v1.Transaction/GetUserLp"
+	Transaction_GetDailyFee_FullMethodName               = "/api.requestEth.v1.Transaction/GetDailyFee"
+	Transaction_AddLiquidity_FullMethodName              = "/api.requestEth.v1.Transaction/AddLiquidity"
+	Transaction_RemoveLiquidity_FullMethodName           = "/api.requestEth.v1.Transaction/RemoveLiquidity"
+	Transaction_BuyAICAT_FullMethodName                  = "/api.requestEth.v1.Transaction/BuyAICAT"
+	Transaction_WithdrawAICAT_FullMethodName             = "/api.requestEth.v1.Transaction/WithdrawAICAT"
+	Transaction_SendAICAT_FullMethodName                 = "/api.requestEth.v1.Transaction/SendAICAT"
+	Transaction_GetBuyAICATByOrderId_FullMethodName      = "/api.requestEth.v1.Transaction/GetBuyAICATByOrderId"
+	Transaction_AddWhite_FullMethodName                  = "/api.requestEth.v1.Transaction/AddWhite"
+	Transaction_GetBoxAllLength_FullMethodName           = "/api.requestEth.v1.Transaction/GetBoxAllLength"
+	Transaction_GetBoxNew_FullMethodName                 = "/api.requestEth.v1.Transaction/GetBoxNew"
+	Transaction_GetBoxOpen_FullMethodName                = "/api.requestEth.v1.Transaction/GetBoxOpen"
+	Transaction_SetReward_FullMethodName                 = "/api.requestEth.v1.Transaction/SetReward"
+	Transaction_SetRewardTwo_FullMethodName              = "/api.requestEth.v1.Transaction/SetRewardTwo"
+	Transaction_GetBoxRewardEvent_FullMethodName         = "/api.requestEth.v1.Transaction/GetBoxRewardEvent"
+	Transaction_GetExchangeEvent_FullMethodName          = "/api.requestEth.v1.Transaction/GetExchangeEvent"
+	Transaction_GetBuyEvent_FullMethodName               = "/api.requestEth.v1.Transaction/GetBuyEvent"
+	Transaction_GetSellEvent_FullMethodName              = "/api.requestEth.v1.Transaction/GetSellEvent"
+	Transaction_GetBoxBuyEvent_FullMethodName            = "/api.requestEth.v1.Transaction/GetBoxBuyEvent"
+	Transaction_GetBoxMintEvent_FullMethodName           = "/api.requestEth.v1.Transaction/GetBoxMintEvent"
+	Transaction_GetBoxMintEventFix_FullMethodName        = "/api.requestEth.v1.Transaction/GetBoxMintEventFix"
+	Transaction_GetBoxListEvent_FullMethodName           = "/api.requestEth.v1.Transaction/GetBoxListEvent"
+	Transaction_GetBoxUnListEvent_FullMethodName         = "/api.requestEth.v1.Transaction/GetBoxUnListEvent"
+	Transaction_GetBoxOpenEvent_FullMethodName           = "/api.requestEth.v1.Transaction/GetBoxOpenEvent"
+	Transaction_GetBoxTransferEvent_FullMethodName       = "/api.requestEth.v1.Transaction/GetBoxTransferEvent"
+	Transaction_GetUserREvent_FullMethodName             = "/api.requestEth.v1.Transaction/GetUserREvent"
+	Transaction_SetUser_FullMethodName                   = "/api.requestEth.v1.Transaction/SetUser"
+	Transaction_PQueue_FullMethodName                    = "/api.requestEth.v1.Transaction/PQueue"
+	Transaction_GetStakeEvent_FullMethodName             = "/api.requestEth.v1.Transaction/GetStakeEvent"
+	Transaction_GetQueueEvent_FullMethodName             = "/api.requestEth.v1.Transaction/GetQueueEvent"
+	Transaction_GetQueueArray_FullMethodName             = "/api.requestEth.v1.Transaction/GetQueueArray"
+	Transaction_GetBindUserEvent_FullMethodName          = "/api.requestEth.v1.Transaction/GetBindUserEvent"
+	Transaction_GetUserBoundEvent_FullMethodName         = "/api.requestEth.v1.Transaction/GetUserBoundEvent"
+	Transaction_RecoverUserBoundEvent_FullMethodName     = "/api.requestEth.v1.Transaction/RecoverUserBoundEvent"
+	Transaction_GetUserStakeChangedEvent_FullMethodName  = "/api.requestEth.v1.Transaction/GetUserStakeChangedEvent"
+	Transaction_GetUserExtraChangedEvent_FullMethodName  = "/api.requestEth.v1.Transaction/GetUserExtraChangedEvent"
+	Transaction_GetStakingRewardEvent_FullMethodName     = "/api.requestEth.v1.Transaction/GetStakingRewardEvent"
+	Transaction_RecoverPerformanceEvent_FullMethodName   = "/api.requestEth.v1.Transaction/RecoverPerformanceEvent"
+	Transaction_GetUserOverview_FullMethodName           = "/api.requestEth.v1.Transaction/GetUserOverview"
+	Transaction_GetUserList_FullMethodName               = "/api.requestEth.v1.Transaction/GetUserList"
+	Transaction_RecoverUserInvestmentData_FullMethodName = "/api.requestEth.v1.Transaction/RecoverUserInvestmentData"
+	Transaction_GetStakingOrderEvent_FullMethodName      = "/api.requestEth.v1.Transaction/GetStakingOrderEvent"
+	Transaction_RecoverStakingOrderEvent_FullMethodName  = "/api.requestEth.v1.Transaction/RecoverStakingOrderEvent"
+	Transaction_GetStakingOrderList_FullMethodName       = "/api.requestEth.v1.Transaction/GetStakingOrderList"
+	Transaction_GetExchangeList_FullMethodName           = "/api.requestEth.v1.Transaction/GetExchangeList"
+	Transaction_GetBuyList_FullMethodName                = "/api.requestEth.v1.Transaction/GetBuyList"
+	Transaction_GetRewardList_FullMethodName             = "/api.requestEth.v1.Transaction/GetRewardList"
+	Transaction_GetBuyBoxList_FullMethodName             = "/api.requestEth.v1.Transaction/GetBuyBoxList"
+	Transaction_UpdateBox_FullMethodName                 = "/api.requestEth.v1.Transaction/UpdateBox"
+	Transaction_GetAddressBox_FullMethodName             = "/api.requestEth.v1.Transaction/GetAddressBox"
+	Transaction_GetSellBoxList_FullMethodName            = "/api.requestEth.v1.Transaction/GetSellBoxList"
+	Transaction_GetMarketList_FullMethodName             = "/api.requestEth.v1.Transaction/GetMarketList"
+	Transaction_GetAllInfo_FullMethodName                = "/api.requestEth.v1.Transaction/GetAllInfo"
 )
 
 // TransactionClient is the client API for Transaction service.
@@ -136,6 +142,12 @@ type TransactionClient interface {
 	GetUserExtraChangedEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	GetStakingRewardEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	RecoverPerformanceEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
+	GetUserOverview(ctx context.Context, in *GetUserOverviewRequest, opts ...grpc.CallOption) (*GetUserOverviewReply, error)
+	GetUserList(ctx context.Context, in *GetUserListRequest, opts ...grpc.CallOption) (*GetUserListReply, error)
+	RecoverUserInvestmentData(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverUserInvestmentDataReply, error)
+	GetStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
+	RecoverStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverStakingOrderEventReply, error)
+	GetStakingOrderList(ctx context.Context, in *GetStakingOrderListRequest, opts ...grpc.CallOption) (*GetStakingOrderListReply, error)
 	GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error)
 	GetBuyList(ctx context.Context, in *GetBuyListRequest, opts ...grpc.CallOption) (*GetBuyListReply, error)
 	GetRewardList(ctx context.Context, in *GetRewardListRequest, opts ...grpc.CallOption) (*GetRewardListReply, error)
@@ -614,6 +626,60 @@ func (c *transactionClient) RecoverPerformanceEvent(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *transactionClient) GetUserOverview(ctx context.Context, in *GetUserOverviewRequest, opts ...grpc.CallOption) (*GetUserOverviewReply, error) {
+	out := new(GetUserOverviewReply)
+	err := c.cc.Invoke(ctx, Transaction_GetUserOverview_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetUserList(ctx context.Context, in *GetUserListRequest, opts ...grpc.CallOption) (*GetUserListReply, error) {
+	out := new(GetUserListReply)
+	err := c.cc.Invoke(ctx, Transaction_GetUserList_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) RecoverUserInvestmentData(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverUserInvestmentDataReply, error) {
+	out := new(RecoverUserInvestmentDataReply)
+	err := c.cc.Invoke(ctx, Transaction_RecoverUserInvestmentData_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error) {
+	out := new(GetUserREventReply)
+	err := c.cc.Invoke(ctx, Transaction_GetStakingOrderEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) RecoverStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverStakingOrderEventReply, error) {
+	out := new(RecoverStakingOrderEventReply)
+	err := c.cc.Invoke(ctx, Transaction_RecoverStakingOrderEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetStakingOrderList(ctx context.Context, in *GetStakingOrderListRequest, opts ...grpc.CallOption) (*GetStakingOrderListReply, error) {
+	out := new(GetStakingOrderListReply)
+	err := c.cc.Invoke(ctx, Transaction_GetStakingOrderList_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *transactionClient) GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error) {
 	out := new(GetExchangeListReply)
 	err := c.cc.Invoke(ctx, Transaction_GetExchangeList_FullMethodName, in, out, opts...)
@@ -750,6 +816,12 @@ type TransactionServer interface {
 	GetUserExtraChangedEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetStakingRewardEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	RecoverPerformanceEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetUserOverview(context.Context, *GetUserOverviewRequest) (*GetUserOverviewReply, error)
+	GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error)
+	RecoverUserInvestmentData(context.Context, *GetUserREventRequest) (*RecoverUserInvestmentDataReply, error)
+	GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	RecoverStakingOrderEvent(context.Context, *GetUserREventRequest) (*RecoverStakingOrderEventReply, error)
+	GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error)
 	GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error)
 	GetBuyList(context.Context, *GetBuyListRequest) (*GetBuyListReply, error)
 	GetRewardList(context.Context, *GetRewardListRequest) (*GetRewardListReply, error)
@@ -918,6 +990,24 @@ func (UnimplementedTransactionServer) GetStakingRewardEvent(context.Context, *Ge
 }
 func (UnimplementedTransactionServer) RecoverPerformanceEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RecoverPerformanceEvent not implemented")
+}
+func (UnimplementedTransactionServer) GetUserOverview(context.Context, *GetUserOverviewRequest) (*GetUserOverviewReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserOverview not implemented")
+}
+func (UnimplementedTransactionServer) GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserList not implemented")
+}
+func (UnimplementedTransactionServer) RecoverUserInvestmentData(context.Context, *GetUserREventRequest) (*RecoverUserInvestmentDataReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecoverUserInvestmentData not implemented")
+}
+func (UnimplementedTransactionServer) GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStakingOrderEvent not implemented")
+}
+func (UnimplementedTransactionServer) RecoverStakingOrderEvent(context.Context, *GetUserREventRequest) (*RecoverStakingOrderEventReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecoverStakingOrderEvent not implemented")
+}
+func (UnimplementedTransactionServer) GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStakingOrderList not implemented")
 }
 func (UnimplementedTransactionServer) GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeList not implemented")
@@ -1877,6 +1967,114 @@ func _Transaction_RecoverPerformanceEvent_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Transaction_GetUserOverview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserOverviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetUserOverview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetUserOverview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetUserOverview(ctx, req.(*GetUserOverviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetUserList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetUserList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetUserList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetUserList(ctx, req.(*GetUserListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_RecoverUserInvestmentData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).RecoverUserInvestmentData(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_RecoverUserInvestmentData_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).RecoverUserInvestmentData(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetStakingOrderEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetStakingOrderEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetStakingOrderEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetStakingOrderEvent(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_RecoverStakingOrderEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserREventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).RecoverStakingOrderEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_RecoverStakingOrderEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).RecoverStakingOrderEvent(ctx, req.(*GetUserREventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetStakingOrderList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStakingOrderListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetStakingOrderList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetStakingOrderList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetStakingOrderList(ctx, req.(*GetStakingOrderListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Transaction_GetExchangeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetExchangeListRequest)
 	if err := dec(in); err != nil {
@@ -2249,6 +2447,30 @@ var Transaction_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RecoverPerformanceEvent",
 			Handler:    _Transaction_RecoverPerformanceEvent_Handler,
+		},
+		{
+			MethodName: "GetUserOverview",
+			Handler:    _Transaction_GetUserOverview_Handler,
+		},
+		{
+			MethodName: "GetUserList",
+			Handler:    _Transaction_GetUserList_Handler,
+		},
+		{
+			MethodName: "RecoverUserInvestmentData",
+			Handler:    _Transaction_RecoverUserInvestmentData_Handler,
+		},
+		{
+			MethodName: "GetStakingOrderEvent",
+			Handler:    _Transaction_GetStakingOrderEvent_Handler,
+		},
+		{
+			MethodName: "RecoverStakingOrderEvent",
+			Handler:    _Transaction_RecoverStakingOrderEvent_Handler,
+		},
+		{
+			MethodName: "GetStakingOrderList",
+			Handler:    _Transaction_GetStakingOrderList_Handler,
 		},
 		{
 			MethodName: "GetExchangeList",
