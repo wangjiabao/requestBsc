@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"requestEth/internal/conf"
 
@@ -3660,10 +3661,27 @@ func (s *TransactionService) GetUserList(ctx context.Context, req *pb.GetUserLis
 			RewardRecommendClaimedTeamUFee:    row.RewardRecommendClaimedTeamUFee,
 			RewardRecommendExpired:            row.RewardRecommendExpired, LineU: row.LineU, LineCoinU: row.LineCoinU,
 			LineCoin: row.LineCoin, LineFee: row.LineFee, LevelReward: row.LevelReward,
-			CreatedAt: createdAt, UpdatedAt: updatedAt,
+			CreatedAt: createdAt, UpdatedAt: updatedAt, Name: row.Name,
 		})
 	}
 	return reply, nil
+}
+
+func (s *TransactionService) UpdateUserName(ctx context.Context, req *pb.UpdateUserNameRequest) (*pb.UpdateUserNameReply, error) {
+	address := strings.TrimSpace(req.Address)
+	if !common.IsHexAddress(address) {
+		return nil, fmt.Errorf("address 不是有效的 BSC 地址")
+	}
+	address = strings.ToLower(common.HexToAddress(address).Hex())
+
+	name := strings.TrimSpace(req.Name)
+	if 100 < utf8.RuneCountInString(name) {
+		return nil, fmt.Errorf("name 不能超过 100 个字符")
+	}
+	if err := s.ac.UpdateUserV1Name(ctx, address, name); nil != err {
+		return nil, err
+	}
+	return &pb.UpdateUserNameReply{}, nil
 }
 
 type rpcBlockTime struct {

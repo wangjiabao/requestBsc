@@ -337,6 +337,13 @@ service Transaction {
     };
   }
 
+  rpc UpdateUserName (UpdateUserNameRequest) returns (UpdateUserNameReply) {
+    option (google.api.http) = {
+      post: "/api/update_user_name"
+      body: "*"
+    };
+  }
+
   rpc RecoverUserInvestmentData (GetUserREventRequest) returns (RecoverUserInvestmentDataReply) {
     option (google.api.http) = {
       get: "/api/recover_user_investment_data"
@@ -1009,6 +1016,7 @@ message GetUserListReply {
     string levelReward = 25;
     uint64 createdAt = 26;
     uint64 updatedAt = 27;
+    string name = 28;
   }
 }
 
@@ -1076,4 +1084,12 @@ message GetStakingOrderListReply {
     uint64 createdAt = 29;
     uint64 updatedAt = 30;
   }
+}
+
+message UpdateUserNameRequest {
+  string address = 1;
+  string name = 2;
+}
+
+message UpdateUserNameReply {
 }

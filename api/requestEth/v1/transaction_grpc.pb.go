@@ -72,6 +72,7 @@ const (
 	Transaction_RecoverPerformanceEvent_FullMethodName   = "/api.requestEth.v1.Transaction/RecoverPerformanceEvent"
 	Transaction_GetUserOverview_FullMethodName           = "/api.requestEth.v1.Transaction/GetUserOverview"
 	Transaction_GetUserList_FullMethodName               = "/api.requestEth.v1.Transaction/GetUserList"
+	Transaction_UpdateUserName_FullMethodName            = "/api.requestEth.v1.Transaction/UpdateUserName"
 	Transaction_RecoverUserInvestmentData_FullMethodName = "/api.requestEth.v1.Transaction/RecoverUserInvestmentData"
 	Transaction_GetStakingOrderEvent_FullMethodName      = "/api.requestEth.v1.Transaction/GetStakingOrderEvent"
 	Transaction_RecoverStakingOrderEvent_FullMethodName  = "/api.requestEth.v1.Transaction/RecoverStakingOrderEvent"
@@ -144,6 +145,7 @@ type TransactionClient interface {
 	RecoverPerformanceEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	GetUserOverview(ctx context.Context, in *GetUserOverviewRequest, opts ...grpc.CallOption) (*GetUserOverviewReply, error)
 	GetUserList(ctx context.Context, in *GetUserListRequest, opts ...grpc.CallOption) (*GetUserListReply, error)
+	UpdateUserName(ctx context.Context, in *UpdateUserNameRequest, opts ...grpc.CallOption) (*UpdateUserNameReply, error)
 	RecoverUserInvestmentData(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverUserInvestmentDataReply, error)
 	GetStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	RecoverStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverStakingOrderEventReply, error)
@@ -644,6 +646,15 @@ func (c *transactionClient) GetUserList(ctx context.Context, in *GetUserListRequ
 	return out, nil
 }
 
+func (c *transactionClient) UpdateUserName(ctx context.Context, in *UpdateUserNameRequest, opts ...grpc.CallOption) (*UpdateUserNameReply, error) {
+	out := new(UpdateUserNameReply)
+	err := c.cc.Invoke(ctx, Transaction_UpdateUserName_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *transactionClient) RecoverUserInvestmentData(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverUserInvestmentDataReply, error) {
 	out := new(RecoverUserInvestmentDataReply)
 	err := c.cc.Invoke(ctx, Transaction_RecoverUserInvestmentData_FullMethodName, in, out, opts...)
@@ -818,6 +829,7 @@ type TransactionServer interface {
 	RecoverPerformanceEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserOverview(context.Context, *GetUserOverviewRequest) (*GetUserOverviewReply, error)
 	GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error)
+	UpdateUserName(context.Context, *UpdateUserNameRequest) (*UpdateUserNameReply, error)
 	RecoverUserInvestmentData(context.Context, *GetUserREventRequest) (*RecoverUserInvestmentDataReply, error)
 	GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	RecoverStakingOrderEvent(context.Context, *GetUserREventRequest) (*RecoverStakingOrderEventReply, error)
@@ -996,6 +1008,9 @@ func (UnimplementedTransactionServer) GetUserOverview(context.Context, *GetUserO
 }
 func (UnimplementedTransactionServer) GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserList not implemented")
+}
+func (UnimplementedTransactionServer) UpdateUserName(context.Context, *UpdateUserNameRequest) (*UpdateUserNameReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserName not implemented")
 }
 func (UnimplementedTransactionServer) RecoverUserInvestmentData(context.Context, *GetUserREventRequest) (*RecoverUserInvestmentDataReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RecoverUserInvestmentData not implemented")
@@ -2003,6 +2018,24 @@ func _Transaction_GetUserList_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Transaction_UpdateUserName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).UpdateUserName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_UpdateUserName_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).UpdateUserName(ctx, req.(*UpdateUserNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Transaction_RecoverUserInvestmentData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserREventRequest)
 	if err := dec(in); err != nil {
@@ -2455,6 +2488,10 @@ var Transaction_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserList",
 			Handler:    _Transaction_GetUserList_Handler,
+		},
+		{
+			MethodName: "UpdateUserName",
+			Handler:    _Transaction_UpdateUserName_Handler,
 		},
 		{
 			MethodName: "RecoverUserInvestmentData",

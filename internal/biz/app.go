@@ -246,6 +246,7 @@ type UserV1Bound struct {
 	BlockNumber uint64
 
 	UserAddr      string
+	Name          string
 	ParentAddr    string
 	RecommendCode string
 
@@ -662,6 +663,7 @@ type UserRepo interface {
 	GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*UserV1Bound, error)
 	GetUserV1Overview(ctx context.Context, yesterdayStart, todayStart, tomorrowStart uint64) (*UserV1Overview, error)
 	GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*UserV1Bound, uint64, error)
+	UpdateUserV1Name(ctx context.Context, address, name string) error
 	InsertUserV1Bound(ctx context.Context, iData *UserV1Bound) error
 	DeleteUserV1BoundAll(ctx context.Context) error
 	GetUserV1BoundSyncProgress(ctx context.Context) (*UserV1BoundSyncProgress, error)
@@ -1711,6 +1713,7 @@ func (ac *AppUsecase) RebuildUserV1Bound(ctx context.Context, events []*UserV1Bo
 }
 
 func copyUserV1Performance(target *UserV1Bound, source *UserV1Bound) {
+	target.Name = source.Name
 	target.Amount = source.Amount
 	target.AmountHistory = source.AmountHistory
 	target.InvestmentCount = source.InvestmentCount
@@ -1757,6 +1760,10 @@ func (ac *AppUsecase) GetUserV1Overview(ctx context.Context, yesterdayStart, tod
 
 func (ac *AppUsecase) GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*UserV1Bound, uint64, error) {
 	return ac.userRepo.GetUserV1BoundPage(ctx, page, pageSize, minAmount, minChildrenAmount, orderBy, order, address, userID)
+}
+
+func (ac *AppUsecase) UpdateUserV1Name(ctx context.Context, address, name string) error {
+	return ac.userRepo.UpdateUserV1Name(ctx, address, name)
 }
 
 func (ac *AppUsecase) GetUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock, limit uint64) ([]uint64, error) {

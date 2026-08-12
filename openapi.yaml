@@ -1098,6 +1098,24 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.UpdateBoxReply'
+    /api/update_user_name:
+        post:
+            tags:
+                - Transaction
+            operationId: Transaction_UpdateUserName
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.requestEth.v1.UpdateUserNameRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.UpdateUserNameReply'
     /api/usdt_balance:
         get:
             tags:
@@ -1773,6 +1791,8 @@ components:
                 updatedAt:
                     type: integer
                     format: uint64
+                name:
+                    type: string
         api.requestEth.v1.GetUserLpReply:
             type: object
             properties:
@@ -1933,6 +1953,16 @@ components:
         api.requestEth.v1.UpdateBoxReply:
             type: object
             properties: {}
+        api.requestEth.v1.UpdateUserNameReply:
+            type: object
+            properties: {}
+        api.requestEth.v1.UpdateUserNameRequest:
+            type: object
+            properties:
+                address:
+                    type: string
+                name:
+                    type: string
         api.requestEth.v1.VerifySigReply:
             type: object
             properties:

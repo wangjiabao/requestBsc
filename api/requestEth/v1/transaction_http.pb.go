@@ -83,6 +83,7 @@ const OperationTransactionSetUser = "/api.requestEth.v1.Transaction/SetUser"
 const OperationTransactionTokenBalance = "/api.requestEth.v1.Transaction/TokenBalance"
 const OperationTransactionTransaction = "/api.requestEth.v1.Transaction/Transaction"
 const OperationTransactionUpdateBox = "/api.requestEth.v1.Transaction/UpdateBox"
+const OperationTransactionUpdateUserName = "/api.requestEth.v1.Transaction/UpdateUserName"
 const OperationTransactionVerifySig = "/api.requestEth.v1.Transaction/VerifySig"
 const OperationTransactionWithdrawAICAT = "/api.requestEth.v1.Transaction/WithdrawAICAT"
 
@@ -151,6 +152,7 @@ type TransactionHTTPServer interface {
 	TokenBalance(context.Context, *TokenBalanceRequest) (*TokenBalanceReply, error)
 	Transaction(context.Context, *TransactionRequest) (*TransactionReply, error)
 	UpdateBox(context.Context, *UpdateBoxRequest) (*UpdateBoxReply, error)
+	UpdateUserName(context.Context, *UpdateUserNameRequest) (*UpdateUserNameReply, error)
 	VerifySig(context.Context, *VerifySigRequest) (*VerifySigReply, error)
 	WithdrawAICAT(context.Context, *WithdrawAICATRequest) (*WithdrawAICATReply, error)
 }
@@ -210,6 +212,7 @@ func RegisterTransactionHTTPServer(s *http.Server, srv TransactionHTTPServer) {
 	r.GET("/api/recover_performance_event", _Transaction_RecoverPerformanceEvent0_HTTP_Handler(srv))
 	r.GET("/api/get_user_overview", _Transaction_GetUserOverview0_HTTP_Handler(srv))
 	r.GET("/api/get_user_list", _Transaction_GetUserList0_HTTP_Handler(srv))
+	r.POST("/api/update_user_name", _Transaction_UpdateUserName0_HTTP_Handler(srv))
 	r.GET("/api/recover_user_investment_data", _Transaction_RecoverUserInvestmentData0_HTTP_Handler(srv))
 	r.GET("/api/get_staking_order_event", _Transaction_GetStakingOrderEvent0_HTTP_Handler(srv))
 	r.GET("/api/recover_staking_order_event", _Transaction_RecoverStakingOrderEvent0_HTTP_Handler(srv))
@@ -1262,6 +1265,28 @@ func _Transaction_GetUserList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx 
 	}
 }
 
+func _Transaction_UpdateUserName0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in UpdateUserNameRequest
+		if err := ctx.Bind(&in); err != nil {
+			return err
+		}
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionUpdateUserName)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.UpdateUserName(ctx, req.(*UpdateUserNameRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*UpdateUserNameReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _Transaction_RecoverUserInvestmentData0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetUserREventRequest
@@ -1574,6 +1599,7 @@ type TransactionHTTPClient interface {
 	TokenBalance(ctx context.Context, req *TokenBalanceRequest, opts ...http.CallOption) (rsp *TokenBalanceReply, err error)
 	Transaction(ctx context.Context, req *TransactionRequest, opts ...http.CallOption) (rsp *TransactionReply, err error)
 	UpdateBox(ctx context.Context, req *UpdateBoxRequest, opts ...http.CallOption) (rsp *UpdateBoxReply, err error)
+	UpdateUserName(ctx context.Context, req *UpdateUserNameRequest, opts ...http.CallOption) (rsp *UpdateUserNameReply, err error)
 	VerifySig(ctx context.Context, req *VerifySigRequest, opts ...http.CallOption) (rsp *VerifySigReply, err error)
 	WithdrawAICAT(ctx context.Context, req *WithdrawAICATRequest, opts ...http.CallOption) (rsp *WithdrawAICATReply, err error)
 }
@@ -2412,6 +2438,19 @@ func (c *TransactionHTTPClientImpl) UpdateBox(ctx context.Context, in *UpdateBox
 	opts = append(opts, http.Operation(OperationTransactionUpdateBox))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) UpdateUserName(ctx context.Context, in *UpdateUserNameRequest, opts ...http.CallOption) (*UpdateUserNameReply, error) {
+	var out UpdateUserNameReply
+	pattern := "/api/update_user_name"
+	path := binding.EncodeURL(pattern, in, false)
+	opts = append(opts, http.Operation(OperationTransactionUpdateUserName))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "POST", path, in, &out, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -267,6 +267,7 @@ type UserV1Bound struct {
 	BlockNumber uint64 `gorm:"column:block_number;not null" json:"block_number"`
 
 	UserAddr      string `gorm:"column:user_addr;type:varchar(42);not null" json:"user_addr"`
+	Name          string `gorm:"column:name;type:varchar(100);not null;default:''" json:"name"`
 	ParentAddr    string `gorm:"column:parent_addr;type:varchar(42);not null" json:"parent_addr"`
 	RecommendCode string `gorm:"column:recommend_code;type:varchar(4096);not null;default:''" json:"recommend_code"`
 
@@ -2266,6 +2267,7 @@ func toBizUserV1Bound(v *UserV1Bound) *biz.UserV1Bound {
 		BlockNumber: v.BlockNumber,
 
 		UserAddr:      v.UserAddr,
+		Name:          v.Name,
 		ParentAddr:    v.ParentAddr,
 		RecommendCode: v.RecommendCode,
 
@@ -2470,6 +2472,23 @@ func (u *UserRepo) GetUserV1BoundPage(ctx context.Context, page, pageSize uint64
 	return result, uint64(total), nil
 }
 
+func (u *UserRepo) UpdateUserV1Name(ctx context.Context, address, name string) error {
+	result := u.data.DB(ctx).Table("user_v1_bound_event").Where("user_addr = ?", address).Update("name", name)
+	if nil != result.Error {
+		return errors.New(500, "UPDATE_USER_V1_NAME_ERROR", result.Error.Error())
+	}
+	if 0 == result.RowsAffected {
+		var count int64
+		if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("user_addr = ?", address).Count(&count).Error; nil != err {
+			return errors.New(500, "UPDATE_USER_V1_NAME_ERROR", err.Error())
+		}
+		if 0 == count {
+			return errors.New(404, "USER_V1_NOT_FOUND", "用户不存在")
+		}
+	}
+	return nil
+}
+
 func decimalOrZero(value string) string {
 	if "" == strings.TrimSpace(value) {
 		return "0"
@@ -2484,6 +2503,7 @@ func (u *UserRepo) InsertUserV1Bound(ctx context.Context, iData *biz.UserV1Bound
 	s.BlockNumber = iData.BlockNumber
 
 	s.UserAddr = iData.UserAddr
+	s.Name = iData.Name
 	s.ParentAddr = iData.ParentAddr
 	s.RecommendCode = iData.RecommendCode
 	s.Amount = decimalOrZero(iData.Amount)
