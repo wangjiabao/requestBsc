@@ -331,6 +331,7 @@ type UserV1ExtraChanged struct {
 	TxHash      string    `gorm:"column:tx_hash;type:varchar(66);not null"`
 	UserAddr    string    `gorm:"column:user_addr;type:varchar(42);not null"`
 	ExtraAmount string    `gorm:"column:extra_amount;type:decimal(65,18);not null;default:0"`
+	ApplyStatus uint8     `gorm:"column:apply_status;not null;default:1"`
 	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
@@ -2740,6 +2741,7 @@ func (u *UserRepo) InsertUserV1ExtraChanged(ctx context.Context, event *biz.User
 		TxHash:      event.TxHash,
 		UserAddr:    event.UserAddr,
 		ExtraAmount: event.ExtraAmount,
+		ApplyStatus: biz.UserV1ExtraChangedApplyStatusApplied,
 	}
 	inserted, err := createPerformanceEvent(ctx, u.data.DB(ctx), "user_v1_extra_changed_event", row)
 	if nil != err {
@@ -2747,6 +2749,20 @@ func (u *UserRepo) InsertUserV1ExtraChanged(ctx context.Context, event *biz.User
 	}
 	event.ID = row.ID
 	return inserted, nil
+}
+
+func (u *UserRepo) UpdateUserV1ExtraChangedApplyStatus(ctx context.Context, eventID uint64, applyStatus uint8) error {
+	result := u.data.DB(ctx).Table("user_v1_extra_changed_event").
+		Where("id = ?", eventID).
+		Update("apply_status", applyStatus)
+	if nil != result.Error {
+		return errors.New(500, "UPDATE_USER_V1_EXTRA_CHANGED_APPLY_STATUS_ERROR", result.Error.Error())
+	}
+	if 1 != result.RowsAffected {
+		err := fmt.Errorf("ExtraChanged event %d apply_status update affected %d rows", eventID, result.RowsAffected)
+		return errors.New(500, "UPDATE_USER_V1_EXTRA_CHANGED_APPLY_STATUS_ERROR", err.Error())
+	}
+	return nil
 }
 
 func (u *UserRepo) InsertStakingV1TeamBooked(ctx context.Context, event *biz.StakingV1Reward) (bool, error) {

@@ -338,9 +338,15 @@ type UserV1ExtraChanged struct {
 	TxHash      string
 	UserAddr    string
 	ExtraAmount string
+	ApplyStatus uint8
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+const (
+	UserV1ExtraChangedApplyStatusApplied      uint8 = 1
+	UserV1ExtraChangedApplyStatusUnregistered uint8 = 2
+)
 
 const (
 	StakingV1RewardTeamBooked  = "team_booked"
@@ -673,6 +679,7 @@ type UserRepo interface {
 	DeleteUserV1PerformanceSyncProgress(ctx context.Context, streamName string) error
 	InsertUserV1StakeChanged(ctx context.Context, event *UserV1StakeChanged) (bool, error)
 	InsertUserV1ExtraChanged(ctx context.Context, event *UserV1ExtraChanged) (bool, error)
+	UpdateUserV1ExtraChangedApplyStatus(ctx context.Context, eventID uint64, applyStatus uint8) error
 	InsertStakingV1TeamBooked(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1TeamClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1TeamExpired(ctx context.Context, event *StakingV1Reward) (bool, error)
@@ -1917,7 +1924,11 @@ func (ac *AppUsecase) saveUserV1ExtraChangedEvents(ctx context.Context, events [
 			return err
 		}
 		if nil == user {
-			return fmt.Errorf("ExtraChanged user %s is not in user_v1_bound_event", event.UserAddr)
+			if err = ac.userRepo.UpdateUserV1ExtraChangedApplyStatus(ctx, event.ID, UserV1ExtraChangedApplyStatusUnregistered); nil != err {
+				return err
+			}
+			fmt.Printf("ExtraChanged event marked unregistered_pending address=%s block=%d event_key=%s\n", event.UserAddr, event.BlockNumber, event.EventKey)
+			continue
 		}
 		if err = ac.userRepo.UpdateUserV1ExtraAmount(ctx, user.ID, event.ExtraAmount); nil != err {
 			return err
