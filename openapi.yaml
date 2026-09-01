@@ -495,6 +495,37 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetDailyFeeReply'
+    /api/get_daily_statistics_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetDailyStatisticsList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: startDate
+                  in: query
+                  schema:
+                    type: string
+                - name: endDate
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetDailyStatisticsListReply'
     /api/get_exchange_event:
         get:
             tags:
@@ -530,6 +561,37 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetExchangeListReply'
+    /api/get_line_claimed_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetLineClaimedList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: date
+                  in: query
+                  schema:
+                    type: string
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetLineClaimedListReply'
     /api/get_lp:
         get:
             tags:
@@ -763,6 +825,38 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/api.requestEth.v1.GetUserREventReply'
+    /api/get_user_ancestor_list:
+        get:
+            tags:
+                - Transaction
+            operationId: Transaction_GetUserAncestorList
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: userId
+                  in: query
+                  schema:
+                    type: integer
+                    format: uint64
+                - name: address
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.requestEth.v1.GetUserAncestorListReply'
     /api/get_user_bound_event:
         get:
             tags:
@@ -1495,6 +1589,48 @@ components:
             properties:
                 ammount:
                     type: string
+        api.requestEth.v1.GetDailyStatisticsListReply:
+            type: object
+            properties:
+                total:
+                    type: integer
+                    format: uint64
+                page:
+                    type: integer
+                    format: uint64
+                pageSize:
+                    type: integer
+                    format: uint64
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetDailyStatisticsListReply_Day'
+                timezone:
+                    type: string
+        api.requestEth.v1.GetDailyStatisticsListReply_Day:
+            type: object
+            properties:
+                date:
+                    type: string
+                lineClaimedCount:
+                    type: integer
+                    format: uint64
+                lineClaimedGrossU:
+                    type: string
+                lineClaimedFeeU:
+                    type: string
+                lineClaimedNetU:
+                    type: string
+                reinvestmentCount:
+                    type: integer
+                    format: uint64
+                reinvestmentAmount:
+                    type: string
+                newOrderCount:
+                    type: integer
+                    format: uint64
+                newOrderAmount:
+                    type: string
         api.requestEth.v1.GetExchangeEventReply:
             type: object
             properties: {}
@@ -1514,6 +1650,61 @@ components:
                 price:
                     type: number
                     format: double
+        api.requestEth.v1.GetLineClaimedListReply:
+            type: object
+            properties:
+                total:
+                    type: integer
+                    format: uint64
+                page:
+                    type: integer
+                    format: uint64
+                pageSize:
+                    type: integer
+                    format: uint64
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetLineClaimedListReply_Record'
+                date:
+                    type: string
+                timezone:
+                    type: string
+        api.requestEth.v1.GetLineClaimedListReply_Record:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint64
+                createdAt:
+                    type: integer
+                    format: uint64
+                txHash:
+                    type: string
+                userAddr:
+                    type: string
+                orderId:
+                    type: string
+                grossU:
+                    type: string
+                feeU:
+                    type: string
+                netU:
+                    type: string
+                paidMs:
+                    type: boolean
+                msAmount:
+                    type: string
+                userId:
+                    type: integer
+                    format: uint64
+                currentOrderCap:
+                    type: string
+                currentOrderRemaining:
+                    type: string
+                blockNumber:
+                    type: integer
+                    format: uint64
         api.requestEth.v1.GetLpByOrderIdReply:
             type: object
             properties:
@@ -1713,6 +1904,22 @@ components:
                 updatedAt:
                     type: integer
                     format: uint64
+        api.requestEth.v1.GetUserAncestorListReply:
+            type: object
+            properties:
+                total:
+                    type: integer
+                    format: uint64
+                page:
+                    type: integer
+                    format: uint64
+                pageSize:
+                    type: integer
+                    format: uint64
+                list:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.requestEth.v1.GetUserListReply_User'
         api.requestEth.v1.GetUserListReply:
             type: object
             properties:

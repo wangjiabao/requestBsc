@@ -47,8 +47,10 @@ const OperationTransactionGetBuyByOrderId = "/api.requestEth.v1.Transaction/GetB
 const OperationTransactionGetBuyEvent = "/api.requestEth.v1.Transaction/GetBuyEvent"
 const OperationTransactionGetBuyList = "/api.requestEth.v1.Transaction/GetBuyList"
 const OperationTransactionGetDailyFee = "/api.requestEth.v1.Transaction/GetDailyFee"
+const OperationTransactionGetDailyStatisticsList = "/api.requestEth.v1.Transaction/GetDailyStatisticsList"
 const OperationTransactionGetExchangeEvent = "/api.requestEth.v1.Transaction/GetExchangeEvent"
 const OperationTransactionGetExchangeList = "/api.requestEth.v1.Transaction/GetExchangeList"
+const OperationTransactionGetLineClaimedList = "/api.requestEth.v1.Transaction/GetLineClaimedList"
 const OperationTransactionGetLpByOrderId = "/api.requestEth.v1.Transaction/GetLpByOrderId"
 const OperationTransactionGetMarketList = "/api.requestEth.v1.Transaction/GetMarketList"
 const OperationTransactionGetQueueArray = "/api.requestEth.v1.Transaction/GetQueueArray"
@@ -61,6 +63,7 @@ const OperationTransactionGetStakeEvent = "/api.requestEth.v1.Transaction/GetSta
 const OperationTransactionGetStakingOrderEvent = "/api.requestEth.v1.Transaction/GetStakingOrderEvent"
 const OperationTransactionGetStakingOrderList = "/api.requestEth.v1.Transaction/GetStakingOrderList"
 const OperationTransactionGetStakingRewardEvent = "/api.requestEth.v1.Transaction/GetStakingRewardEvent"
+const OperationTransactionGetUserAncestorList = "/api.requestEth.v1.Transaction/GetUserAncestorList"
 const OperationTransactionGetUserBoundEvent = "/api.requestEth.v1.Transaction/GetUserBoundEvent"
 const OperationTransactionGetUserExtraChangedEvent = "/api.requestEth.v1.Transaction/GetUserExtraChangedEvent"
 const OperationTransactionGetUserList = "/api.requestEth.v1.Transaction/GetUserList"
@@ -116,8 +119,10 @@ type TransactionHTTPServer interface {
 	GetBuyEvent(context.Context, *GetBuyEventRequest) (*GetBuyEventReply, error)
 	GetBuyList(context.Context, *GetBuyListRequest) (*GetBuyListReply, error)
 	GetDailyFee(context.Context, *GetDailyFeeRequest) (*GetDailyFeeReply, error)
+	GetDailyStatisticsList(context.Context, *GetDailyStatisticsListRequest) (*GetDailyStatisticsListReply, error)
 	GetExchangeEvent(context.Context, *GetExchangeEventRequest) (*GetExchangeEventReply, error)
 	GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error)
+	GetLineClaimedList(context.Context, *GetLineClaimedListRequest) (*GetLineClaimedListReply, error)
 	GetLpByOrderId(context.Context, *GetLpByOrderIdRequest) (*GetLpByOrderIdReply, error)
 	GetMarketList(context.Context, *GetMarketListRequest) (*GetMarketListReply, error)
 	GetQueueArray(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
@@ -130,6 +135,7 @@ type TransactionHTTPServer interface {
 	GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error)
 	GetStakingRewardEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
+	GetUserAncestorList(context.Context, *GetUserAncestorListRequest) (*GetUserAncestorListReply, error)
 	GetUserBoundEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserExtraChangedEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	GetUserList(context.Context, *GetUserListRequest) (*GetUserListReply, error)
@@ -217,6 +223,9 @@ func RegisterTransactionHTTPServer(s *http.Server, srv TransactionHTTPServer) {
 	r.GET("/api/get_staking_order_event", _Transaction_GetStakingOrderEvent0_HTTP_Handler(srv))
 	r.GET("/api/recover_staking_order_event", _Transaction_RecoverStakingOrderEvent0_HTTP_Handler(srv))
 	r.GET("/api/get_staking_order_list", _Transaction_GetStakingOrderList0_HTTP_Handler(srv))
+	r.GET("/api/get_line_claimed_list", _Transaction_GetLineClaimedList0_HTTP_Handler(srv))
+	r.GET("/api/get_user_ancestor_list", _Transaction_GetUserAncestorList0_HTTP_Handler(srv))
+	r.GET("/api/get_daily_statistics_list", _Transaction_GetDailyStatisticsList0_HTTP_Handler(srv))
 	r.GET("/api/get_exchange_list", _Transaction_GetExchangeList0_HTTP_Handler(srv))
 	r.GET("/api/get_buy_list", _Transaction_GetBuyList0_HTTP_Handler(srv))
 	r.GET("/api/get_reward_list", _Transaction_GetRewardList0_HTTP_Handler(srv))
@@ -1363,6 +1372,63 @@ func _Transaction_GetStakingOrderList0_HTTP_Handler(srv TransactionHTTPServer) f
 	}
 }
 
+func _Transaction_GetLineClaimedList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetLineClaimedListRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetLineClaimedList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetLineClaimedList(ctx, req.(*GetLineClaimedListRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetLineClaimedListReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_GetUserAncestorList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetUserAncestorListRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetUserAncestorList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetUserAncestorList(ctx, req.(*GetUserAncestorListRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetUserAncestorListReply)
+		return ctx.Result(200, reply)
+	}
+}
+
+func _Transaction_GetDailyStatisticsList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
+	return func(ctx http.Context) error {
+		var in GetDailyStatisticsListRequest
+		if err := ctx.BindQuery(&in); err != nil {
+			return err
+		}
+		http.SetOperation(ctx, OperationTransactionGetDailyStatisticsList)
+		h := ctx.Middleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.GetDailyStatisticsList(ctx, req.(*GetDailyStatisticsListRequest))
+		})
+		out, err := h(ctx, &in)
+		if err != nil {
+			return err
+		}
+		reply := out.(*GetDailyStatisticsListReply)
+		return ctx.Result(200, reply)
+	}
+}
+
 func _Transaction_GetExchangeList0_HTTP_Handler(srv TransactionHTTPServer) func(ctx http.Context) error {
 	return func(ctx http.Context) error {
 		var in GetExchangeListRequest
@@ -1563,8 +1629,10 @@ type TransactionHTTPClient interface {
 	GetBuyEvent(ctx context.Context, req *GetBuyEventRequest, opts ...http.CallOption) (rsp *GetBuyEventReply, err error)
 	GetBuyList(ctx context.Context, req *GetBuyListRequest, opts ...http.CallOption) (rsp *GetBuyListReply, err error)
 	GetDailyFee(ctx context.Context, req *GetDailyFeeRequest, opts ...http.CallOption) (rsp *GetDailyFeeReply, err error)
+	GetDailyStatisticsList(ctx context.Context, req *GetDailyStatisticsListRequest, opts ...http.CallOption) (rsp *GetDailyStatisticsListReply, err error)
 	GetExchangeEvent(ctx context.Context, req *GetExchangeEventRequest, opts ...http.CallOption) (rsp *GetExchangeEventReply, err error)
 	GetExchangeList(ctx context.Context, req *GetExchangeListRequest, opts ...http.CallOption) (rsp *GetExchangeListReply, err error)
+	GetLineClaimedList(ctx context.Context, req *GetLineClaimedListRequest, opts ...http.CallOption) (rsp *GetLineClaimedListReply, err error)
 	GetLpByOrderId(ctx context.Context, req *GetLpByOrderIdRequest, opts ...http.CallOption) (rsp *GetLpByOrderIdReply, err error)
 	GetMarketList(ctx context.Context, req *GetMarketListRequest, opts ...http.CallOption) (rsp *GetMarketListReply, err error)
 	GetQueueArray(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
@@ -1577,6 +1645,7 @@ type TransactionHTTPClient interface {
 	GetStakingOrderEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetStakingOrderList(ctx context.Context, req *GetStakingOrderListRequest, opts ...http.CallOption) (rsp *GetStakingOrderListReply, err error)
 	GetStakingRewardEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
+	GetUserAncestorList(ctx context.Context, req *GetUserAncestorListRequest, opts ...http.CallOption) (rsp *GetUserAncestorListReply, err error)
 	GetUserBoundEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetUserExtraChangedEvent(ctx context.Context, req *GetUserREventRequest, opts ...http.CallOption) (rsp *GetUserREventReply, err error)
 	GetUserList(ctx context.Context, req *GetUserListRequest, opts ...http.CallOption) (rsp *GetUserListReply, err error)
@@ -1976,6 +2045,19 @@ func (c *TransactionHTTPClientImpl) GetDailyFee(ctx context.Context, in *GetDail
 	return &out, err
 }
 
+func (c *TransactionHTTPClientImpl) GetDailyStatisticsList(ctx context.Context, in *GetDailyStatisticsListRequest, opts ...http.CallOption) (*GetDailyStatisticsListReply, error) {
+	var out GetDailyStatisticsListReply
+	pattern := "/api/get_daily_statistics_list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetDailyStatisticsList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
 func (c *TransactionHTTPClientImpl) GetExchangeEvent(ctx context.Context, in *GetExchangeEventRequest, opts ...http.CallOption) (*GetExchangeEventReply, error) {
 	var out GetExchangeEventReply
 	pattern := "/api/get_exchange_event"
@@ -1994,6 +2076,19 @@ func (c *TransactionHTTPClientImpl) GetExchangeList(ctx context.Context, in *Get
 	pattern := "/api/get_exchange_list"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationTransactionGetExchangeList))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) GetLineClaimedList(ctx context.Context, in *GetLineClaimedListRequest, opts ...http.CallOption) (*GetLineClaimedListReply, error) {
+	var out GetLineClaimedListReply
+	pattern := "/api/get_line_claimed_list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetLineClaimedList))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {
@@ -2150,6 +2245,19 @@ func (c *TransactionHTTPClientImpl) GetStakingRewardEvent(ctx context.Context, i
 	pattern := "/api/get_staking_reward_event"
 	path := binding.EncodeURL(pattern, in, true)
 	opts = append(opts, http.Operation(OperationTransactionGetStakingRewardEvent))
+	opts = append(opts, http.PathTemplate(pattern))
+	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &out, err
+}
+
+func (c *TransactionHTTPClientImpl) GetUserAncestorList(ctx context.Context, in *GetUserAncestorListRequest, opts ...http.CallOption) (*GetUserAncestorListReply, error) {
+	var out GetUserAncestorListReply
+	pattern := "/api/get_user_ancestor_list"
+	path := binding.EncodeURL(pattern, in, true)
+	opts = append(opts, http.Operation(OperationTransactionGetUserAncestorList))
 	opts = append(opts, http.PathTemplate(pattern))
 	err := c.cc.Invoke(ctx, "GET", path, nil, &out, opts...)
 	if err != nil {

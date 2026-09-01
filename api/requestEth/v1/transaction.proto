@@ -368,6 +368,24 @@ service Transaction {
     };
   }
 
+  rpc GetLineClaimedList (GetLineClaimedListRequest) returns (GetLineClaimedListReply) {
+    option (google.api.http) = {
+      get: "/api/get_line_claimed_list"
+    };
+  }
+
+  rpc GetUserAncestorList (GetUserAncestorListRequest) returns (GetUserAncestorListReply) {
+    option (google.api.http) = {
+      get: "/api/get_user_ancestor_list"
+    };
+  }
+
+  rpc GetDailyStatisticsList (GetDailyStatisticsListRequest) returns (GetDailyStatisticsListReply) {
+    option (google.api.http) = {
+      get: "/api/get_daily_statistics_list"
+    };
+  }
+
   rpc GetExchangeList (GetExchangeListRequest) returns (GetExchangeListReply) {
     option (google.api.http) = {
       get: "/api/get_exchange_list"
@@ -1083,6 +1101,80 @@ message GetStakingOrderListReply {
     uint64 lastSyncedBlock = 28;
     uint64 createdAt = 29;
     uint64 updatedAt = 30;
+  }
+}
+
+message GetLineClaimedListRequest {
+  uint64 page = 1;
+  uint64 pageSize = 2;
+  string date = 3; // YYYY-MM-DD，不传默认 Asia/Shanghai 当天
+  string address = 4;
+}
+
+message GetLineClaimedListReply {
+  uint64 total = 1;
+  uint64 page = 2;
+  uint64 pageSize = 3;
+  repeated Record list = 4;
+  string date = 5;
+  string timezone = 6;
+
+  message Record {
+    uint64 id = 1;
+    uint64 createdAt = 2; // 数据库 created_at 按 Asia/Shanghai 解释的 Unix 秒
+    string txHash = 3;
+    string userAddr = 4;
+    string orderId = 5;
+    string grossU = 6;
+    string feeU = 7;
+    string netU = 8;
+    bool paidMs = 9;
+    string msAmount = 10;
+    uint64 userId = 11;
+    string currentOrderCap = 12;
+    string currentOrderRemaining = 13;
+    uint64 blockNumber = 14;
+  }
+}
+
+message GetUserAncestorListRequest {
+  uint64 page = 1;
+  uint64 pageSize = 2;
+  uint64 userId = 3;
+  string address = 4;
+}
+
+message GetUserAncestorListReply {
+  uint64 total = 1;
+  uint64 page = 2;
+  uint64 pageSize = 3;
+  repeated GetUserListReply.User list = 4;
+}
+
+message GetDailyStatisticsListRequest {
+  uint64 page = 1;
+  uint64 pageSize = 2;
+  string startDate = 3; // YYYY-MM-DD，不传默认 Asia/Shanghai 当天；按 created_at 落库日统计
+  string endDate = 4; // YYYY-MM-DD，不传默认与 startDate 相同
+}
+
+message GetDailyStatisticsListReply {
+  uint64 total = 1;
+  uint64 page = 2;
+  uint64 pageSize = 3;
+  repeated Day list = 4;
+  string timezone = 5;
+
+  message Day {
+    string date = 1;
+    uint64 lineClaimedCount = 2;
+    string lineClaimedGrossU = 3;
+    string lineClaimedFeeU = 4;
+    string lineClaimedNetU = 5;
+    uint64 reinvestmentCount = 6;
+    string reinvestmentAmount = 7;
+    uint64 newOrderCount = 8; // staking_v1_order_created_event 订单创建数
+    string newOrderAmount = 9; // staking_v1_order_created_event 订单创建金额
   }
 }
 

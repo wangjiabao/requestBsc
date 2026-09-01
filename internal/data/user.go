@@ -3,13 +3,15 @@ package data
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"requestEth/internal/biz"
-	"strings"
-	"time"
 )
 
 type SwapTrade struct {
@@ -2324,6 +2326,19 @@ func (u *UserRepo) GetUserV1BoundByAddress(ctx context.Context, address string) 
 	return toBizUserV1Bound(&v), nil
 }
 
+func (u *UserRepo) GetUserV1BoundByID(ctx context.Context, userID uint64) (*biz.UserV1Bound, error) {
+	var v UserV1Bound
+
+	if err := u.data.DB(ctx).Table("user_v1_bound_event").Where("id = ?", userID).First(&v).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, errors.New(500, "USER_V1_BOUND_BY_ID_ERROR", err.Error())
+	}
+
+	return toBizUserV1Bound(&v), nil
+}
+
 func (u *UserRepo) GetUserV1Bounds(ctx context.Context) ([]*biz.UserV1Bound, error) {
 	var rows []UserV1Bound
 	if err := u.data.DB(ctx).Table("user_v1_bound_event").Order("id asc").Find(&rows).Error; nil != err {
@@ -2838,6 +2853,151 @@ func (u *UserRepo) InsertStakingV1LineClaimed(ctx context.Context, event *biz.St
 	}
 	event.ID = row.ID
 	return inserted, nil
+}
+
+func (u *UserRepo) GetStakingV1LineClaimedPage(ctx context.Context, page, pageSize uint64, startAt, endAt time.Time, address string) ([]*biz.StakingV1LineClaimedListItem, uint64, error) {
+	if 0 == page {
+		page = 1
+	}
+	if 0 == pageSize {
+		pageSize = 20
+	}
+	address = strings.ToLower(strings.TrimSpace(address))
+	// created_at is a timezone-less MySQL DATETIME. Pass the Shanghai calendar
+	// boundary as text so a DSN without loc=Local cannot convert it to UTC.
+	startValue := startAt.Format("2006-01-02 15:04:05")
+	endValue := endAt.Format("2006-01-02 15:04:05")
+
+	countQuery := u.data.DB(ctx).Table("staking_v1_line_claimed_event AS line").
+		Where("line.created_at >= ? AND line.created_at < ?", startValue, endValue)
+	if "" != address {
+		countQuery = countQuery.Where("line.user_addr = ?", address)
+	}
+	var total int64
+	if err := countQuery.Count(&total).Error; nil != err {
+		return nil, 0, errors.New(500, "COUNT_STAKING_V1_LINE_CLAIMED_PAGE_ERROR", err.Error())
+	}
+
+	query := u.data.DB(ctx).Table("staking_v1_line_claimed_event AS line").
+		Select(`
+  line.id,
+  line.block_number,
+  line.created_at,
+  line.tx_hash,
+  line.user_addr,
+  line.order_id,
+  line.gross_u,
+  line.fee_u,
+  (line.gross_u - line.fee_u) AS net_u,
+  line.paid_ms,
+  line.ms_amount,
+  COALESCE(current_order.user_id, 0) AS user_id,
+  COALESCE(current_order.cap, 0) AS current_order_cap,
+  COALESCE(current_order.remaining, 0) AS current_order_remaining`).
+		Joins("LEFT JOIN staking_v1_order AS current_order ON current_order.order_id = line.order_id").
+		Where("line.created_at >= ? AND line.created_at < ?", startValue, endValue)
+	if "" != address {
+		query = query.Where("line.user_addr = ?", address)
+	}
+
+	var rows []*biz.StakingV1LineClaimedListItem
+	if err := query.Order("line.created_at DESC, line.id DESC").
+		Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Scan(&rows).Error; nil != err {
+		return nil, 0, errors.New(500, "GET_STAKING_V1_LINE_CLAIMED_PAGE_ERROR", err.Error())
+	}
+	return rows, uint64(total), nil
+}
+
+func (u *UserRepo) GetStakingV1DailyPerformance(ctx context.Context, startAt, endAt time.Time) ([]*biz.StakingV1DailyPerformance, error) {
+	// Keep the range in the same timezone-less calendar representation stored by
+	// MySQL, independent of the connection DSN's time.Location setting.
+	startValue := startAt.Format("2006-01-02 15:04:05")
+	endValue := endAt.Format("2006-01-02 15:04:05")
+	lineSQL := `
+SELECT
+  DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+  COUNT(*) AS line_claimed_count,
+  COALESCE(SUM(gross_u), 0) AS line_claimed_gross_u,
+  COALESCE(SUM(fee_u), 0) AS line_claimed_fee_u,
+  COALESCE(SUM(gross_u - fee_u), 0) AS line_claimed_net_u
+FROM staking_v1_line_claimed_event
+WHERE created_at >= ? AND created_at < ?
+GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')`
+	var lineRows []*biz.StakingV1DailyPerformance
+	if err := u.data.DB(ctx).Raw(lineSQL, startValue, endValue).Scan(&lineRows).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_DAILY_LINE_CLAIMED_ERROR", err.Error())
+	}
+
+	stakeSQL := `
+SELECT
+  DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+  COUNT(*) AS reinvestment_count,
+  COALESCE(SUM(amount), 0) AS reinvestment_amount
+FROM user_v1_stake_changed_event
+WHERE is_add = 1 AND investment_number > 1 AND created_at >= ? AND created_at < ?
+GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')`
+	var stakeRows []*biz.StakingV1DailyPerformance
+	if err := u.data.DB(ctx).Raw(stakeSQL, startValue, endValue).Scan(&stakeRows).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_DAILY_STAKE_ERROR", err.Error())
+	}
+
+	orderSQL := `
+SELECT
+  DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+  COUNT(*) AS new_order_count,
+  COALESCE(SUM(amount), 0) AS new_order_amount
+FROM staking_v1_order_created_event
+WHERE created_at >= ? AND created_at < ?
+GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')`
+	var orderRows []*biz.StakingV1DailyPerformance
+	if err := u.data.DB(ctx).Raw(orderSQL, startValue, endValue).Scan(&orderRows).Error; nil != err {
+		return nil, errors.New(500, "GET_STAKING_V1_DAILY_ORDER_ERROR", err.Error())
+	}
+
+	byDate := make(map[string]*biz.StakingV1DailyPerformance, len(lineRows)+len(stakeRows)+len(orderRows))
+	for _, row := range lineRows {
+		byDate[row.Date] = row
+	}
+	for _, stake := range stakeRows {
+		row, ok := byDate[stake.Date]
+		if !ok {
+			row = &biz.StakingV1DailyPerformance{Date: stake.Date}
+			byDate[stake.Date] = row
+		}
+		row.ReinvestmentCount = stake.ReinvestmentCount
+		row.ReinvestmentAmount = stake.ReinvestmentAmount
+	}
+	for _, order := range orderRows {
+		row, ok := byDate[order.Date]
+		if !ok {
+			row = &biz.StakingV1DailyPerformance{Date: order.Date}
+			byDate[order.Date] = row
+		}
+		row.NewOrderCount = order.NewOrderCount
+		row.NewOrderAmount = order.NewOrderAmount
+	}
+
+	result := make([]*biz.StakingV1DailyPerformance, 0, len(byDate))
+	for _, row := range byDate {
+		if "" == strings.TrimSpace(row.LineClaimedGrossU) {
+			row.LineClaimedGrossU = "0"
+		}
+		if "" == strings.TrimSpace(row.LineClaimedFeeU) {
+			row.LineClaimedFeeU = "0"
+		}
+		if "" == strings.TrimSpace(row.LineClaimedNetU) {
+			row.LineClaimedNetU = "0"
+		}
+		if "" == strings.TrimSpace(row.ReinvestmentAmount) {
+			row.ReinvestmentAmount = "0"
+		}
+		if "" == strings.TrimSpace(row.NewOrderAmount) {
+			row.NewOrderAmount = "0"
+		}
+		result = append(result, row)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Date > result[j].Date })
+	return result, nil
 }
 
 func (u *UserRepo) InsertStakingV1OrderEvent(ctx context.Context, event *biz.StakingV1OrderEvent) (bool, error) {

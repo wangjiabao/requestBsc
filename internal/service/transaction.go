@@ -3667,6 +3667,218 @@ func (s *TransactionService) GetUserList(ctx context.Context, req *pb.GetUserLis
 	return reply, nil
 }
 
+func normalizeSimplePage(page, pageSize uint64) (uint64, uint64, error) {
+	if 0 == page {
+		page = 1
+	}
+	if 100000000 < page {
+		return 0, 0, fmt.Errorf("page 不能超过 100000000")
+	}
+	if 0 == pageSize {
+		pageSize = 20
+	}
+	if 100 < pageSize {
+		pageSize = 100
+	}
+	return page, pageSize, nil
+}
+
+func shanghaiCalendarDate(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	date, err := time.ParseInLocation("2006-01-02", value, shanghai)
+	if nil != err || date.Format("2006-01-02") != value {
+		return time.Time{}, fmt.Errorf("日期 %q 格式错误，应为 YYYY-MM-DD", value)
+	}
+	if date.Year() < 1000 {
+		return time.Time{}, fmt.Errorf("日期 %q 超出 MySQL 支持范围", value)
+	}
+	return date, nil
+}
+
+func apiDecimal(value string) string {
+	if "" == strings.TrimSpace(value) {
+		return "0"
+	}
+	return value
+}
+
+// MySQL DATETIME has no timezone. Reinterpret its displayed calendar fields as
+// Asia/Shanghai before returning a Unix timestamp, regardless of the DSN loc.
+func shanghaiDatabaseTimeUnix(value time.Time) uint64 {
+	if value.IsZero() {
+		return 0
+	}
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	calendarTime := time.Date(
+		value.Year(), value.Month(), value.Day(), value.Hour(), value.Minute(), value.Second(), value.Nanosecond(), shanghai,
+	)
+	if calendarTime.Unix() < 0 {
+		return 0
+	}
+	return uint64(calendarTime.Unix())
+}
+
+func (s *TransactionService) GetLineClaimedList(ctx context.Context, req *pb.GetLineClaimedListRequest) (*pb.GetLineClaimedListReply, error) {
+	page, pageSize, err := normalizeSimplePage(req.Page, req.PageSize)
+	if nil != err {
+		return nil, err
+	}
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	dateValue := strings.TrimSpace(req.Date)
+	if "" == dateValue {
+		dateValue = time.Now().In(shanghai).Format("2006-01-02")
+	}
+	date, err := shanghaiCalendarDate(dateValue)
+	if nil != err {
+		return nil, err
+	}
+
+	address := strings.TrimSpace(req.Address)
+	if "" != address {
+		if !common.IsHexAddress(address) {
+			return nil, fmt.Errorf("address 不是有效的 BSC 地址")
+		}
+		address = strings.ToLower(common.HexToAddress(address).Hex())
+	}
+	rows, total, err := s.ac.GetStakingV1LineClaimedPage(ctx, page, pageSize, date, date.AddDate(0, 0, 1), address)
+	if nil != err {
+		return nil, err
+	}
+
+	reply := &pb.GetLineClaimedListReply{
+		Total: total, Page: page, PageSize: pageSize, Date: dateValue, Timezone: "Asia/Shanghai",
+		List: make([]*pb.GetLineClaimedListReply_Record, 0, len(rows)),
+	}
+	for _, row := range rows {
+		createdAt := shanghaiDatabaseTimeUnix(row.CreatedAt)
+		reply.List = append(reply.List, &pb.GetLineClaimedListReply_Record{
+			Id: row.ID, BlockNumber: row.BlockNumber, CreatedAt: createdAt, TxHash: row.TxHash, UserAddr: row.UserAddr, OrderId: row.OrderID,
+			GrossU: apiDecimal(row.GrossU), FeeU: apiDecimal(row.FeeU), NetU: apiDecimal(row.NetU),
+			PaidMs: row.PaidMs, MsAmount: apiDecimal(row.MsAmount), UserId: row.UserID,
+			CurrentOrderCap: apiDecimal(row.CurrentOrderCap), CurrentOrderRemaining: apiDecimal(row.CurrentOrderRemaining),
+		})
+	}
+	return reply, nil
+}
+
+func (s *TransactionService) GetUserAncestorList(ctx context.Context, req *pb.GetUserAncestorListRequest) (*pb.GetUserAncestorListReply, error) {
+	page, pageSize, err := normalizeSimplePage(req.Page, req.PageSize)
+	if nil != err {
+		return nil, err
+	}
+	address := strings.TrimSpace(req.Address)
+	if "" != address {
+		if !common.IsHexAddress(address) {
+			return nil, fmt.Errorf("address 不是有效的 BSC 地址")
+		}
+		address = strings.ToLower(common.HexToAddress(address).Hex())
+	}
+	if 0 == req.UserId && "" == address {
+		return nil, fmt.Errorf("userId 和 address 至少传一个")
+	}
+
+	rows, total, err := s.ac.GetUserV1Ancestors(ctx, req.UserId, address, page, pageSize)
+	if nil != err {
+		return nil, err
+	}
+	reply := &pb.GetUserAncestorListReply{
+		Total: total, Page: page, PageSize: pageSize,
+		List: make([]*pb.GetUserListReply_User, 0, len(rows)),
+	}
+	for _, row := range rows {
+		createdAt := uint64(0)
+		updatedAt := uint64(0)
+		if !row.CreatedAt.IsZero() {
+			createdAt = uint64(row.CreatedAt.Unix())
+		}
+		if !row.UpdatedAt.IsZero() {
+			updatedAt = uint64(row.UpdatedAt.Unix())
+		}
+		reply.List = append(reply.List, &pb.GetUserListReply_User{
+			Id: row.ID, BlockNumber: row.BlockNumber, UserAddr: row.UserAddr, ParentAddr: row.ParentAddr,
+			RecommendCode: row.RecommendCode, Amount: row.Amount, AmountHistory: row.AmountHistory,
+			InvestmentCount: row.InvestmentCount, ChildrenAmount: row.ChildrenAmount,
+			ChildrenAmountHistory: row.ChildrenAmountHistory, ChildrenAmountExtra: row.ChildrenAmountExtra,
+			RewardRecommendAmount: row.RewardRecommendAmount, RewardRecommendPay: row.RewardRecommendPay,
+			RewardRecommendStoreAmount: row.RewardRecommendStoreAmount, RewardRecommendFee: row.RewardRecommendFee,
+			RewardRecommendTeamUAmount:        row.RewardRecommendTeamUAmount,
+			RewardRecommendClaimedTeamUNet:    row.RewardRecommendClaimedTeamUNet,
+			RewardRecommendClaimedTeamUAmount: row.RewardRecommendClaimedTeamUAmount,
+			RewardRecommendClaimedTeamUFee:    row.RewardRecommendClaimedTeamUFee,
+			RewardRecommendExpired:            row.RewardRecommendExpired, LineU: row.LineU, LineCoinU: row.LineCoinU,
+			LineCoin: row.LineCoin, LineFee: row.LineFee, LevelReward: row.LevelReward,
+			CreatedAt: createdAt, UpdatedAt: updatedAt, Name: row.Name,
+		})
+	}
+	return reply, nil
+}
+
+func (s *TransactionService) GetDailyStatisticsList(ctx context.Context, req *pb.GetDailyStatisticsListRequest) (*pb.GetDailyStatisticsListReply, error) {
+	page, pageSize, err := normalizeSimplePage(req.Page, req.PageSize)
+	if nil != err {
+		return nil, err
+	}
+	shanghai := time.FixedZone("Asia/Shanghai", 8*60*60)
+	startValue := strings.TrimSpace(req.StartDate)
+	endValue := strings.TrimSpace(req.EndDate)
+	if "" == startValue && "" == endValue {
+		startValue = time.Now().In(shanghai).Format("2006-01-02")
+		endValue = startValue
+	} else if "" == startValue {
+		startValue = endValue
+	} else if "" == endValue {
+		endValue = startValue
+	}
+	startDate, err := shanghaiCalendarDate(startValue)
+	if nil != err {
+		return nil, err
+	}
+	endDate, err := shanghaiCalendarDate(endValue)
+	if nil != err {
+		return nil, err
+	}
+	if endDate.Before(startDate) {
+		return nil, fmt.Errorf("endDate 不能早于 startDate")
+	}
+	dayCount := uint64(endDate.Sub(startDate)/(24*time.Hour)) + 1
+	if 366 < dayCount {
+		return nil, fmt.Errorf("一次最多查询 366 天")
+	}
+
+	rows, err := s.ac.GetStakingV1DailyPerformance(ctx, startDate, endDate.AddDate(0, 0, 1))
+	if nil != err {
+		return nil, err
+	}
+	rowsByDate := make(map[string]*biz.StakingV1DailyPerformance, len(rows))
+	for _, row := range rows {
+		if nil != row {
+			rowsByDate[row.Date] = row
+		}
+	}
+
+	reply := &pb.GetDailyStatisticsListReply{
+		Total: dayCount, Page: page, PageSize: pageSize, Timezone: "Asia/Shanghai",
+		List: make([]*pb.GetDailyStatisticsListReply_Day, 0, pageSize),
+	}
+	offset := (page - 1) * pageSize
+	for i := offset; i < dayCount && i < offset+pageSize; i++ {
+		dateValue := endDate.AddDate(0, 0, -int(i)).Format("2006-01-02")
+		row := rowsByDate[dateValue]
+		if nil == row {
+			row = &biz.StakingV1DailyPerformance{Date: dateValue}
+		}
+		reply.List = append(reply.List, &pb.GetDailyStatisticsListReply_Day{
+			Date: dateValue, LineClaimedCount: row.LineClaimedCount,
+			LineClaimedGrossU: apiDecimal(row.LineClaimedGrossU), LineClaimedFeeU: apiDecimal(row.LineClaimedFeeU),
+			LineClaimedNetU: apiDecimal(row.LineClaimedNetU), ReinvestmentCount: row.ReinvestmentCount,
+			ReinvestmentAmount: apiDecimal(row.ReinvestmentAmount), NewOrderCount: row.NewOrderCount,
+			NewOrderAmount: apiDecimal(row.NewOrderAmount),
+		})
+	}
+	return reply, nil
+}
+
 func (s *TransactionService) UpdateUserName(ctx context.Context, req *pb.UpdateUserNameRequest) (*pb.UpdateUserNameReply, error) {
 	address := strings.TrimSpace(req.Address)
 	if !common.IsHexAddress(address) {

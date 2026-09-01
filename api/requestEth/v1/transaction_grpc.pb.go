@@ -77,6 +77,9 @@ const (
 	Transaction_GetStakingOrderEvent_FullMethodName      = "/api.requestEth.v1.Transaction/GetStakingOrderEvent"
 	Transaction_RecoverStakingOrderEvent_FullMethodName  = "/api.requestEth.v1.Transaction/RecoverStakingOrderEvent"
 	Transaction_GetStakingOrderList_FullMethodName       = "/api.requestEth.v1.Transaction/GetStakingOrderList"
+	Transaction_GetLineClaimedList_FullMethodName        = "/api.requestEth.v1.Transaction/GetLineClaimedList"
+	Transaction_GetUserAncestorList_FullMethodName       = "/api.requestEth.v1.Transaction/GetUserAncestorList"
+	Transaction_GetDailyStatisticsList_FullMethodName    = "/api.requestEth.v1.Transaction/GetDailyStatisticsList"
 	Transaction_GetExchangeList_FullMethodName           = "/api.requestEth.v1.Transaction/GetExchangeList"
 	Transaction_GetBuyList_FullMethodName                = "/api.requestEth.v1.Transaction/GetBuyList"
 	Transaction_GetRewardList_FullMethodName             = "/api.requestEth.v1.Transaction/GetRewardList"
@@ -150,6 +153,9 @@ type TransactionClient interface {
 	GetStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*GetUserREventReply, error)
 	RecoverStakingOrderEvent(ctx context.Context, in *GetUserREventRequest, opts ...grpc.CallOption) (*RecoverStakingOrderEventReply, error)
 	GetStakingOrderList(ctx context.Context, in *GetStakingOrderListRequest, opts ...grpc.CallOption) (*GetStakingOrderListReply, error)
+	GetLineClaimedList(ctx context.Context, in *GetLineClaimedListRequest, opts ...grpc.CallOption) (*GetLineClaimedListReply, error)
+	GetUserAncestorList(ctx context.Context, in *GetUserAncestorListRequest, opts ...grpc.CallOption) (*GetUserAncestorListReply, error)
+	GetDailyStatisticsList(ctx context.Context, in *GetDailyStatisticsListRequest, opts ...grpc.CallOption) (*GetDailyStatisticsListReply, error)
 	GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error)
 	GetBuyList(ctx context.Context, in *GetBuyListRequest, opts ...grpc.CallOption) (*GetBuyListReply, error)
 	GetRewardList(ctx context.Context, in *GetRewardListRequest, opts ...grpc.CallOption) (*GetRewardListReply, error)
@@ -691,6 +697,33 @@ func (c *transactionClient) GetStakingOrderList(ctx context.Context, in *GetStak
 	return out, nil
 }
 
+func (c *transactionClient) GetLineClaimedList(ctx context.Context, in *GetLineClaimedListRequest, opts ...grpc.CallOption) (*GetLineClaimedListReply, error) {
+	out := new(GetLineClaimedListReply)
+	err := c.cc.Invoke(ctx, Transaction_GetLineClaimedList_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetUserAncestorList(ctx context.Context, in *GetUserAncestorListRequest, opts ...grpc.CallOption) (*GetUserAncestorListReply, error) {
+	out := new(GetUserAncestorListReply)
+	err := c.cc.Invoke(ctx, Transaction_GetUserAncestorList_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionClient) GetDailyStatisticsList(ctx context.Context, in *GetDailyStatisticsListRequest, opts ...grpc.CallOption) (*GetDailyStatisticsListReply, error) {
+	out := new(GetDailyStatisticsListReply)
+	err := c.cc.Invoke(ctx, Transaction_GetDailyStatisticsList_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *transactionClient) GetExchangeList(ctx context.Context, in *GetExchangeListRequest, opts ...grpc.CallOption) (*GetExchangeListReply, error) {
 	out := new(GetExchangeListReply)
 	err := c.cc.Invoke(ctx, Transaction_GetExchangeList_FullMethodName, in, out, opts...)
@@ -834,6 +867,9 @@ type TransactionServer interface {
 	GetStakingOrderEvent(context.Context, *GetUserREventRequest) (*GetUserREventReply, error)
 	RecoverStakingOrderEvent(context.Context, *GetUserREventRequest) (*RecoverStakingOrderEventReply, error)
 	GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error)
+	GetLineClaimedList(context.Context, *GetLineClaimedListRequest) (*GetLineClaimedListReply, error)
+	GetUserAncestorList(context.Context, *GetUserAncestorListRequest) (*GetUserAncestorListReply, error)
+	GetDailyStatisticsList(context.Context, *GetDailyStatisticsListRequest) (*GetDailyStatisticsListReply, error)
 	GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error)
 	GetBuyList(context.Context, *GetBuyListRequest) (*GetBuyListReply, error)
 	GetRewardList(context.Context, *GetRewardListRequest) (*GetRewardListReply, error)
@@ -1023,6 +1059,15 @@ func (UnimplementedTransactionServer) RecoverStakingOrderEvent(context.Context, 
 }
 func (UnimplementedTransactionServer) GetStakingOrderList(context.Context, *GetStakingOrderListRequest) (*GetStakingOrderListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStakingOrderList not implemented")
+}
+func (UnimplementedTransactionServer) GetLineClaimedList(context.Context, *GetLineClaimedListRequest) (*GetLineClaimedListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLineClaimedList not implemented")
+}
+func (UnimplementedTransactionServer) GetUserAncestorList(context.Context, *GetUserAncestorListRequest) (*GetUserAncestorListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserAncestorList not implemented")
+}
+func (UnimplementedTransactionServer) GetDailyStatisticsList(context.Context, *GetDailyStatisticsListRequest) (*GetDailyStatisticsListReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDailyStatisticsList not implemented")
 }
 func (UnimplementedTransactionServer) GetExchangeList(context.Context, *GetExchangeListRequest) (*GetExchangeListReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetExchangeList not implemented")
@@ -2108,6 +2153,60 @@ func _Transaction_GetStakingOrderList_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Transaction_GetLineClaimedList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLineClaimedListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetLineClaimedList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetLineClaimedList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetLineClaimedList(ctx, req.(*GetLineClaimedListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetUserAncestorList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserAncestorListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetUserAncestorList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetUserAncestorList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetUserAncestorList(ctx, req.(*GetUserAncestorListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Transaction_GetDailyStatisticsList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDailyStatisticsListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServer).GetDailyStatisticsList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Transaction_GetDailyStatisticsList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServer).GetDailyStatisticsList(ctx, req.(*GetDailyStatisticsListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Transaction_GetExchangeList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetExchangeListRequest)
 	if err := dec(in); err != nil {
@@ -2508,6 +2607,18 @@ var Transaction_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetStakingOrderList",
 			Handler:    _Transaction_GetStakingOrderList_Handler,
+		},
+		{
+			MethodName: "GetLineClaimedList",
+			Handler:    _Transaction_GetLineClaimedList_Handler,
+		},
+		{
+			MethodName: "GetUserAncestorList",
+			Handler:    _Transaction_GetUserAncestorList_Handler,
+		},
+		{
+			MethodName: "GetDailyStatisticsList",
+			Handler:    _Transaction_GetDailyStatisticsList_Handler,
 		},
 		{
 			MethodName: "GetExchangeList",

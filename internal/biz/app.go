@@ -383,6 +383,41 @@ type StakingV1Reward struct {
 	UpdatedAt time.Time
 }
 
+// StakingV1LineClaimedListItem is one static-income withdrawal together with
+// the latest locally known capacity of its corresponding order.
+type StakingV1LineClaimedListItem struct {
+	ID                    uint64
+	BlockNumber           uint64
+	CreatedAt             time.Time
+	TxHash                string
+	UserID                uint64
+	UserAddr              string
+	OrderID               string
+	GrossU                string
+	FeeU                  string
+	NetU                  string
+	PaidMs                bool
+	MsAmount              string
+	CurrentOrderCap       string
+	CurrentOrderRemaining string
+}
+
+// StakingV1DailyPerformance uses database created_at dates. It intentionally
+// represents the local ingestion day rather than the on-chain event day.
+type StakingV1DailyPerformance struct {
+	Date string
+
+	LineClaimedCount  uint64
+	LineClaimedGrossU string
+	LineClaimedFeeU   string
+	LineClaimedNetU   string
+
+	ReinvestmentCount  uint64
+	ReinvestmentAmount string
+	NewOrderCount      uint64
+	NewOrderAmount     string
+}
+
 const (
 	StakingV1OrderStatusQueued  uint8 = 1
 	StakingV1OrderStatusRunning uint8 = 2
@@ -664,6 +699,7 @@ type UserRepo interface {
 	GetBindReferrals(ctx context.Context) ([]*BindReferral, error)
 	InsertBindReferral(ctx context.Context, iData *BindReferral) error
 	GetUserV1BoundLast(ctx context.Context) (*UserV1Bound, error)
+	GetUserV1BoundByID(ctx context.Context, userID uint64) (*UserV1Bound, error)
 	GetUserV1BoundByAddress(ctx context.Context, address string) (*UserV1Bound, error)
 	GetUserV1Bounds(ctx context.Context) ([]*UserV1Bound, error)
 	GetUserV1BoundsByIDs(ctx context.Context, ids []uint64) ([]*UserV1Bound, error)
@@ -684,6 +720,8 @@ type UserRepo interface {
 	InsertStakingV1TeamClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1TeamExpired(ctx context.Context, event *StakingV1Reward) (bool, error)
 	InsertStakingV1LineClaimed(ctx context.Context, event *StakingV1Reward) (bool, error)
+	GetStakingV1LineClaimedPage(ctx context.Context, page, pageSize uint64, startAt, endAt time.Time, address string) ([]*StakingV1LineClaimedListItem, uint64, error)
+	GetStakingV1DailyPerformance(ctx context.Context, startAt, endAt time.Time) ([]*StakingV1DailyPerformance, error)
 	GetUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock, limit uint64) ([]uint64, error)
 	CountUserV1StakeChangedBlocksWithoutTime(ctx context.Context, fromBlock uint64) (uint64, error)
 	UpdateUserV1StakeChangedBlockTimes(ctx context.Context, blockTimes map[uint64]uint64) error
@@ -1767,6 +1805,93 @@ func (ac *AppUsecase) GetUserV1Overview(ctx context.Context, yesterdayStart, tod
 
 func (ac *AppUsecase) GetUserV1BoundPage(ctx context.Context, page, pageSize uint64, minAmount, minChildrenAmount, orderBy, order, address string, userID uint64) ([]*UserV1Bound, uint64, error) {
 	return ac.userRepo.GetUserV1BoundPage(ctx, page, pageSize, minAmount, minChildrenAmount, orderBy, order, address, userID)
+}
+
+func (ac *AppUsecase) GetUserV1Ancestors(ctx context.Context, userID uint64, address string, page, pageSize uint64) ([]*UserV1Bound, uint64, error) {
+	address = strings.ToLower(strings.TrimSpace(address))
+	if 0 == userID && "" == address {
+		return nil, 0, fmt.Errorf("userId 和 address 至少传一个")
+	}
+
+	var user *UserV1Bound
+	if 0 < userID {
+		var err error
+		user, err = ac.userRepo.GetUserV1BoundByID(ctx, userID)
+		if nil != err {
+			return nil, 0, err
+		}
+		if nil == user {
+			return nil, 0, fmt.Errorf("用户 %d 不存在", userID)
+		}
+	}
+	if "" != address {
+		addressUser, err := ac.userRepo.GetUserV1BoundByAddress(ctx, address)
+		if nil != err {
+			return nil, 0, err
+		}
+		if nil == addressUser {
+			return nil, 0, fmt.Errorf("用户地址 %s 不存在", address)
+		}
+		if nil != user && user.ID != addressUser.ID {
+			return nil, 0, fmt.Errorf("userId 和 address 不属于同一个用户")
+		}
+		user = addressUser
+	}
+
+	ids, err := userV1RecommendIDs(user.RecommendCode)
+	if nil != err {
+		return nil, 0, err
+	}
+	if 0 == len(ids) {
+		return []*UserV1Bound{}, 0, nil
+	}
+	rows, err := ac.userRepo.GetUserV1BoundsByIDs(ctx, ids)
+	if nil != err {
+		return nil, 0, err
+	}
+	byID := make(map[uint64]*UserV1Bound, len(rows))
+	for _, row := range rows {
+		byID[row.ID] = row
+	}
+	ancestors := make([]*UserV1Bound, 0, len(ids))
+	seen := make(map[uint64]struct{}, len(ids))
+	for i := len(ids) - 1; i >= 0; i-- {
+		id := ids[i]
+		if _, ok := seen[id]; ok {
+			return nil, 0, fmt.Errorf("用户 %s 的推荐路径包含重复用户 %d", user.UserAddr, id)
+		}
+		seen[id] = struct{}{}
+		row, ok := byID[id]
+		if !ok {
+			return nil, 0, fmt.Errorf("用户 %s 的推荐路径不完整，缺少上级 %d", user.UserAddr, id)
+		}
+		ancestors = append(ancestors, row)
+	}
+
+	total := uint64(len(ancestors))
+	if 0 == page {
+		page = 1
+	}
+	if 0 == pageSize {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+	if offset >= total {
+		return []*UserV1Bound{}, total, nil
+	}
+	end := offset + pageSize
+	if end > total {
+		end = total
+	}
+	return ancestors[int(offset):int(end)], total, nil
+}
+
+func (ac *AppUsecase) GetStakingV1LineClaimedPage(ctx context.Context, page, pageSize uint64, startAt, endAt time.Time, address string) ([]*StakingV1LineClaimedListItem, uint64, error) {
+	return ac.userRepo.GetStakingV1LineClaimedPage(ctx, page, pageSize, startAt, endAt, strings.ToLower(strings.TrimSpace(address)))
+}
+
+func (ac *AppUsecase) GetStakingV1DailyPerformance(ctx context.Context, startAt, endAt time.Time) ([]*StakingV1DailyPerformance, error) {
+	return ac.userRepo.GetStakingV1DailyPerformance(ctx, startAt, endAt)
 }
 
 func (ac *AppUsecase) UpdateUserV1Name(ctx context.Context, address, name string) error {
